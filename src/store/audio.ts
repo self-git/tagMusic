@@ -23,11 +23,25 @@ export const useAudioStore = defineStore("audio", () => {
 
   const total = computed(() => files.value.length);
 
-  // 按 path 去重后追加，避免同一文件重复导入
+  // 按 path 去重后追加，避免同一文件重复导入。
+  // 用新数组替换引用（而非原地 push）：TanStack Table 按 data 引用 memo 行模型，
+  // 原地修改不会触发表格刷新。
   function addFiles(list: AudioFileMeta[]): void {
     const seen = new Set(files.value.map((f) => f.path));
     const fresh = list.filter((f) => !seen.has(f.path));
-    files.value.push(...fresh);
+    if (fresh.length === 0) return;
+    files.value = [...files.value, ...fresh];
+  }
+
+  // 从工作区移除指定文件：同步清理置信度记录并收敛 currentIndex（同样替换数组引用以刷新表格）
+  function removeByPaths(paths: string[]): void {
+    const set = new Set(paths);
+    if (set.size === 0) return;
+    files.value = files.value.filter((f) => !set.has(f.path));
+    for (const p of paths) delete confidenceByPath.value[p];
+    if (currentIndex.value > files.value.length - 1) {
+      currentIndex.value = Math.max(0, files.value.length - 1);
+    }
   }
 
   function next(): void {
@@ -79,6 +93,7 @@ export const useAudioStore = defineStore("audio", () => {
     total,
     confidenceByPath,
     addFiles,
+    removeByPaths,
     next,
     prev,
     reset,

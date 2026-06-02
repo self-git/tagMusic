@@ -38,6 +38,17 @@ function toggleAll(): void {
   selected.value = allSelected.value ? new Set() : new Set(files.value.map((f) => f.path));
 }
 
+// 从工作区移除文件，并同步清理选中集合
+function removeByPaths(paths: string[]): void {
+  store.removeByPaths(paths);
+  const next = new Set(selected.value);
+  for (const p of paths) next.delete(p);
+  selected.value = next;
+}
+function removeSelected(): void {
+  removeByPaths([...selected.value]);
+}
+
 // 整列填充 / 批量应用
 const fillField = ref<"title" | "album" | "artist">("album");
 const fillValue = ref("");
@@ -133,6 +144,13 @@ function confidenceLabel(path: string): string {
         >
           应用所选({{ selected.size }})
         </button>
+        <button
+          class="rounded-lg border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+          :disabled="selected.size === 0"
+          @click="removeSelected"
+        >
+          移除所选
+        </button>
       </div>
     </div>
 
@@ -184,6 +202,7 @@ function confidenceLabel(path: string): string {
             <th class="w-16 px-2 py-2">集</th>
             <th class="w-14 px-2 py-2">置信</th>
             <th v-if="renameEnabled" class="px-2 py-2">重命名预览</th>
+            <th class="w-10 px-2 py-2"></th>
           </tr>
         </thead>
         <tbody>
@@ -237,6 +256,15 @@ function confidenceLabel(path: string): string {
               :title="preview(row.original) ?? ''"
             >
               {{ preview(row.original) ?? "—" }}
+            </td>
+            <td class="px-2 py-1 text-center">
+              <button
+                class="text-neutral-600 hover:text-red-400"
+                title="从工作区移除"
+                @click="removeByPaths([row.original.path])"
+              >
+                ✕
+              </button>
             </td>
           </tr>
         </tbody>
