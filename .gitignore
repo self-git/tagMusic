@@ -1,0 +1,35 @@
+# --- macOS ---
+.DS_Store
+
+# --- Node / Vite frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# --- Rust / Tauri backend ---
+src-tauri/target/
+**/*.rs.bk
+*.pdb
+
+# --- Build / packaging output ---
+*.dmg
+*.app
+
+# --- Env / secrets (LLM API keys must never be committed) ---
+.env
+.env.*
+!.env.example
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+
+# --- Editor ---
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
