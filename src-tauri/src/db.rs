@@ -14,7 +14,9 @@ fn db_path() -> Result<PathBuf, String> {
     Ok(dir.join("tagcast.db"))
 }
 
-/// 打开数据库并建表，返回托管状态。节目档案库表 show_profiles 以 album 唯一。
+/// 打开数据库并建表，返回托管状态。
+/// - show_profiles：节目档案库，以 album 唯一。
+/// - file_snapshots：写回前的原文件名 + 原 tag 快照，以 current_path 唯一，支撑一键重置。
 pub fn init() -> Result<Db, String> {
     let conn = Connection::open(db_path()?).map_err(|e| e.to_string())?;
     conn.execute_batch(
@@ -25,7 +27,20 @@ pub fn init() -> Result<Db, String> {
             keywords TEXT NOT NULL DEFAULT '',
             created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_show_profiles_album ON show_profiles(album);",
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_show_profiles_album ON show_profiles(album);
+
+        CREATE TABLE IF NOT EXISTS file_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            current_path TEXT NOT NULL,
+            original_path TEXT NOT NULL,
+            original_file_name TEXT NOT NULL,
+            orig_title TEXT,
+            orig_album TEXT,
+            orig_artist TEXT,
+            orig_track INTEGER,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_file_snapshots_current ON file_snapshots(current_path);",
     )
     .map_err(|e| e.to_string())?;
     Ok(Db(Mutex::new(conn)))

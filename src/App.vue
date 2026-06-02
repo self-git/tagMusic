@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useAudioStore } from "@/store/audio";
 import { useSettingsStore } from "@/store/settings";
 import { useProfilesStore } from "@/store/profiles";
+import { useWriteback } from "@/composables/useWriteback";
 import SettingsModal from "@/components/SettingsModal.vue";
 import ProfileLibraryModal from "@/components/ProfileLibraryModal.vue";
 
@@ -17,8 +18,11 @@ const { icloudAutoDownload, renameEnabled } = storeToRefs(settings);
 // 节目档案库：启动时加载，弹窗开关由 store 跨视图共享
 const profiles = useProfilesStore();
 const { libraryOpen } = storeToRefs(profiles);
+// 启动加载档案库 + 已写回文件快照（标记可重置）
+const { loadWritten } = useWriteback();
 onMounted(() => {
   void profiles.load();
+  void loadWritten();
 });
 
 // 设置弹窗开关

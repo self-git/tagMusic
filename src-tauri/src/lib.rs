@@ -3,6 +3,7 @@ mod db;
 mod icloud;
 mod llm;
 mod profiles;
+mod write;
 
 use tauri::Manager;
 
@@ -30,7 +31,10 @@ pub fn run() {
             llm::parse_filenames,
             profiles::list_show_profiles,
             profiles::save_show_profile,
-            profiles::delete_show_profile
+            profiles::delete_show_profile,
+            write::write_metadata,
+            write::reset_files,
+            write::list_snapshot_paths
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,9 +2,14 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import type { AudioFileMeta } from "@/types/audio";
 import type { ParseResult } from "@/types/llm";
+import type { WriteOutcome, ResetOutcome } from "@/types/write";
 
 // 可整列填充/批量应用的文本字段
 type EditableTextField = "title" | "album" | "artist";
+
+function basename(p: string): string {
+  return p.split("/").pop() ?? p;
+}
 
 /**
  * 音频文件审核状态：保存已读取的文件列表与单文件向导的当前定位。
@@ -16,6 +21,8 @@ export const useAudioStore = defineStore("audio", () => {
   const currentIndex = ref(0);
   // LLM 解析置信度，按文件 path 索引（仅展示用）
   const confidenceByPath = ref<Record<string, number | null>>({});
+  // 已写回（存在原始快照）的文件当前路径，决定是否可重置
+  const writtenPaths = ref<Set<string>>(new Set());
 
   const currentFile = computed<AudioFileMeta | null>(
     () => files.value[currentIndex.value] ?? null,
@@ -38,7 +45,12 @@ export const useAudioStore = defineStore("audio", () => {
     const set = new Set(paths);
     if (set.size === 0) return;
     files.value = files.value.filter((f) => !set.has(f.path));
-    for (const p of paths) delete confidenceByPath.value[p];
+    const written = new Set(writtenPaths.value);
+    for (const p of paths) {
+      delete confidenceByPath.value[p];
+      written.delete(p);
+    }
+    writtenPaths.value = written;
     if (currentIndex.value > files.value.length - 1) {
       currentIndex.value = Math.max(0, files.value.length - 1);
     }
@@ -56,6 +68,7 @@ export const useAudioStore = defineStore("audio", () => {
     files.value = [];
     currentIndex.value = 0;
     confidenceByPath.value = {};
+    writtenPaths.value = new Set();
   }
 
   // 回填 LLM 解析结果：按 path 匹配，更新四字段并记录置信度
@@ -86,12 +99,73 @@ export const useAudioStore = defineStore("audio", () => {
     }
   }
 
+  function isWritten(path: string): boolean {
+    return writtenPaths.value.has(path);
+  }
+
+  // 启动时载入已写回文件路径（来自 SQLite 快照），用于标记可重置
+  function setWrittenPaths(paths: string[]): void {
+    writtenPaths.value = new Set(paths);
+  }
+
+  // 写回成功后：重命名的文件同步更新 path/fileName 与置信度键，并标记为已写回
+  function applyWriteOutcomes(outcomes: WriteOutcome[]): void {
+    const written = new Set(writtenPaths.value);
+    const indexByPath = new Map(files.value.map((f, i) => [f.path, i]));
+    for (const o of outcomes) {
+      const idx = indexByPath.get(o.oldPath);
+      if (idx !== undefined && o.newPath !== o.oldPath) {
+        const f = files.value[idx];
+        const conf = confidenceByPath.value[o.oldPath];
+        if (conf !== undefined) {
+          confidenceByPath.value[o.newPath] = conf;
+          delete confidenceByPath.value[o.oldPath];
+        }
+        f.path = o.newPath;
+        f.fileName = basename(o.newPath);
+      }
+      written.delete(o.oldPath);
+      written.add(o.newPath);
+    }
+    files.value = [...files.value];
+    writtenPaths.value = written;
+  }
+
+  // 重置成功后：还原 path/fileName 与四字段，并清除已写回标记
+  function applyResetOutcomes(outcomes: ResetOutcome[]): void {
+    const written = new Set(writtenPaths.value);
+    const indexByPath = new Map(files.value.map((f, i) => [f.path, i]));
+    for (const o of outcomes) {
+      written.delete(o.currentPath);
+      written.delete(o.restoredPath);
+      const idx = indexByPath.get(o.currentPath);
+      if (idx === undefined) continue;
+      const f = files.value[idx];
+      if (o.restoredPath !== o.currentPath) {
+        const conf = confidenceByPath.value[o.currentPath];
+        if (conf !== undefined) {
+          confidenceByPath.value[o.restoredPath] = conf;
+          delete confidenceByPath.value[o.currentPath];
+        }
+        f.path = o.restoredPath;
+        f.fileName = basename(o.restoredPath);
+      }
+      f.title = o.title;
+      f.album = o.album;
+      f.artist = o.artist;
+      f.track = o.track;
+    }
+    files.value = [...files.value];
+    writtenPaths.value = written;
+  }
+
   return {
     files,
     currentIndex,
     currentFile,
     total,
     confidenceByPath,
+    writtenPaths,
     addFiles,
     removeByPaths,
     next,
@@ -100,5 +174,9 @@ export const useAudioStore = defineStore("audio", () => {
     applyParseResults,
     fillColumn,
     applyToPaths,
+    isWritten,
+    setWrittenPaths,
+    applyWriteOutcomes,
+    applyResetOutcomes,
   };
 });

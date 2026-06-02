@@ -5,6 +5,7 @@ import { useAudioStore } from "@/store/audio";
 import { useProfilesStore } from "@/store/profiles";
 import { useAudioImport } from "@/composables/useAudioImport";
 import { useRename } from "@/composables/useRename";
+import { useWriteback } from "@/composables/useWriteback";
 
 const store = useAudioStore();
 const { files, currentIndex, currentFile } = storeToRefs(store);
@@ -14,6 +15,25 @@ const { isDragging, loading, pickFiles, pendingDownload, downloadTotal, download
 // 当前文件的重命名预览（开关开启且有标题时）
 const { preview } = useRename();
 const currentPreview = computed(() => (currentFile.value ? preview(currentFile.value) : null));
+// 元数据写回与重置
+const { working, error: writeError, notice, write, reset } = useWriteback();
+
+async function writeCurrent(): Promise<void> {
+  if (!currentFile.value) return;
+  try {
+    await write([currentFile.value]);
+  } catch {
+    // 错误已记录在 writeError，UI 内展示
+  }
+}
+async function resetCurrent(): Promise<void> {
+  if (!currentFile.value) return;
+  try {
+    await reset([currentFile.value.path]);
+  } catch {
+    // 错误已记录在 writeError，UI 内展示
+  }
+}
 
 const progressLabel = computed(() =>
   files.value.length ? `${currentIndex.value + 1} / ${files.value.length}` : "0 / 0",
@@ -150,6 +170,9 @@ function formatDuration(secs: number | null): string {
         </div>
       </div>
 
+      <p v-if="writeError" class="mt-3 text-sm text-red-400">写回/重置失败：{{ writeError }}</p>
+      <p v-if="notice" class="mt-3 text-sm text-emerald-400">{{ notice }}</p>
+
       <div class="mt-4 flex items-center justify-between">
         <button
           class="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 transition hover:bg-neutral-800 disabled:opacity-40"
@@ -158,6 +181,23 @@ function formatDuration(secs: number | null): string {
         >
           上一个
         </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
+            :disabled="working"
+            @click="writeCurrent"
+          >
+            {{ working ? "写回中…" : "写回元数据" }}
+          </button>
+          <button
+            v-if="store.isWritten(currentFile.path)"
+            class="rounded-lg border border-amber-800 px-4 py-2 text-sm text-amber-300 transition hover:bg-amber-950/50 disabled:opacity-50"
+            :disabled="working"
+            @click="resetCurrent"
+          >
+            重置
+          </button>
+        </div>
         <button
           class="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 transition hover:bg-neutral-800 disabled:opacity-40"
           :disabled="currentIndex >= files.length - 1"

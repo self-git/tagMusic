@@ -8,6 +8,7 @@ import { useProfilesStore } from "@/store/profiles";
 import { useAudioImport } from "@/composables/useAudioImport";
 import { useLlmParse } from "@/composables/useLlmParse";
 import { useRename } from "@/composables/useRename";
+import { useWriteback } from "@/composables/useWriteback";
 import type { AudioFileMeta } from "@/types/audio";
 
 const store = useAudioStore();
@@ -19,6 +20,8 @@ const { pickFiles, loading, isDragging, downloadTotal, downloadDone, pendingDown
 const { parsing, error, parse } = useLlmParse();
 // 重命名预览（开关开启且有标题时返回新名）
 const { renameEnabled, preview } = useRename();
+// 元数据写回与重置
+const { working, error: writeError, notice, write, reset } = useWriteback();
 
 // 解析后未匹配到档案的节目名，引导用户建档
 const unmatchedAlbums = ref<string[]>([]);
@@ -47,6 +50,23 @@ function removeByPaths(paths: string[]): void {
 }
 function removeSelected(): void {
   removeByPaths([...selected.value]);
+}
+
+// 写回全部文件元数据（开启重命名时同步改名）
+async function writeAll(): Promise<void> {
+  try {
+    await write(files.value);
+  } catch {
+    // 错误已记录在 writeError，UI 顶部展示
+  }
+}
+// 重置：恢复原 tag + 原文件名。无参数时重置所选
+async function resetPaths(paths: string[]): Promise<void> {
+  try {
+    await reset(paths);
+  } catch {
+    // 错误已记录在 writeError，UI 顶部展示
+  }
 }
 
 // 整列填充 / 批量应用
@@ -115,6 +135,13 @@ function confidenceLabel(path: string): string {
       >
         {{ parsing ? "AI 解析中…" : "AI 解析" }}
       </button>
+      <button
+        class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        :disabled="working || files.length === 0"
+        @click="writeAll"
+      >
+        {{ working ? "写回中…" : "写回元数据" }}
+      </button>
 
       <div class="ml-auto flex items-center gap-2">
         <select
@@ -145,6 +172,13 @@ function confidenceLabel(path: string): string {
           应用所选({{ selected.size }})
         </button>
         <button
+          class="rounded-lg border border-amber-800 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-950/50 disabled:opacity-50"
+          :disabled="working || selected.size === 0"
+          @click="resetPaths([...selected])"
+        >
+          重置所选
+        </button>
+        <button
           class="rounded-lg border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50"
           :disabled="selected.size === 0"
           @click="removeSelected"
@@ -171,6 +205,18 @@ function confidenceLabel(path: string): string {
       class="border-b border-red-900 bg-red-950/40 px-4 py-1.5 text-sm text-red-300"
     >
       解析失败：{{ error }}
+    </p>
+    <p
+      v-if="writeError"
+      class="border-b border-red-900 bg-red-950/40 px-4 py-1.5 text-sm text-red-300"
+    >
+      写回/重置失败：{{ writeError }}
+    </p>
+    <p
+      v-if="notice"
+      class="border-b border-emerald-900 bg-emerald-950/40 px-4 py-1.5 text-sm text-emerald-300"
+    >
+      {{ notice }}
     </p>
     <div
       v-if="unmatchedAlbums.length > 0"
@@ -202,7 +248,7 @@ function confidenceLabel(path: string): string {
             <th class="w-16 px-2 py-2">集</th>
             <th class="w-14 px-2 py-2">置信</th>
             <th v-if="renameEnabled" class="px-2 py-2">重命名预览</th>
-            <th class="w-10 px-2 py-2"></th>
+            <th class="w-24 px-2 py-2"></th>
           </tr>
         </thead>
         <tbody>
@@ -257,7 +303,16 @@ function confidenceLabel(path: string): string {
             >
               {{ preview(row.original) ?? "—" }}
             </td>
-            <td class="px-2 py-1 text-center">
+            <td class="whitespace-nowrap px-2 py-1 text-center">
+              <button
+                v-if="store.isWritten(row.original.path)"
+                class="mr-2 text-xs text-amber-400 hover:underline disabled:opacity-50"
+                :disabled="working"
+                title="恢复原文件名与原标签"
+                @click="resetPaths([row.original.path])"
+              >
+                重置
+              </button>
               <button
                 class="text-neutral-600 hover:text-red-400"
                 title="从工作区移除"
