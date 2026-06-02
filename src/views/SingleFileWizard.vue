@@ -6,7 +6,8 @@ import { useAudioImport } from "@/composables/useAudioImport";
 
 const store = useAudioStore();
 const { files, currentIndex, currentFile } = storeToRefs(store);
-const { isDragging, loading, pickFiles } = useAudioImport();
+const { isDragging, loading, pickFiles, pendingDownload, downloadTotal, downloadDone } =
+  useAudioImport();
 
 const progressLabel = computed(() =>
   files.value.length ? `${currentIndex.value + 1} / ${files.value.length}` : "0 / 0",
@@ -28,6 +29,22 @@ function formatDuration(secs: number | null): string {
       class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-sky-400 bg-sky-500/10"
     >
       <p class="text-lg font-medium text-sky-300">松开以导入音频文件</p>
+    </div>
+
+    <!-- iCloud 下载进度 -->
+    <div
+      v-if="downloadTotal > 0"
+      class="mx-auto mt-3 max-w-2xl rounded-lg border border-sky-800 bg-sky-950/40 px-4 py-2 text-sm text-sky-300"
+    >
+      正在从 iCloud 下载… {{ downloadDone }} / {{ downloadTotal }}
+    </div>
+
+    <!-- 未下载文件提示（仅提示模式 / 下载超时） -->
+    <div
+      v-if="pendingDownload.length > 0"
+      class="mx-auto mt-3 max-w-2xl rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-2 text-sm text-amber-300"
+    >
+      {{ pendingDownload.length }} 个文件尚未下载，已跳过。请在 Finder 中下载后重新导入。
     </div>
 
     <!-- 空状态：引导拖入或选择文件 -->

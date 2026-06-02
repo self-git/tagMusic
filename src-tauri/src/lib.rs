@@ -1,4 +1,5 @@
 mod audio;
+mod icloud;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,7 +15,11 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![audio::read_audio_metadata])
+        .invoke_handler(tauri::generate_handler![
+            audio::read_audio_metadata,
+            icloud::check_icloud_status,
+            icloud::start_icloud_download
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
