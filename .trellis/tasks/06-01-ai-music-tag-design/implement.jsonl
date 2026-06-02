@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Rust/Tauri 后端开发约定入口（目录结构、错误处理、数据库、日志、质量）"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Rust 后端模块组织与文件布局约定，PR1 脚手架需遵循"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "lofty 读写 / IPC 命令的错误类型与处理策略"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Vue3 前端开发约定入口（组件、状态、类型安全、目录结构）"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "前端 src/{components,composables,views,store} 目录约定，PR1 脚手架需遵循"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "单文件向导 UI 骨架的组件编写约定"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "TypeScript 类型安全约定，IPC 命令参数/返回类型对齐"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Tauri IPC 跨 Rust/Vue 层数据流，需对齐字段与序列化格式"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "避免重复实现 tag 读写与文件名解析工具"}

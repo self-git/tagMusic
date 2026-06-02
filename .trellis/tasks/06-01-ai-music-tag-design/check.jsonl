@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Rust 代码质量标准与禁止模式，clippy/rustfmt 检查依据"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "校验错误处理是否符合后端约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Vue3/TS 代码质量标准与禁止模式"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "校验前端类型安全与 IPC 类型对齐"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "校验 Tauri IPC 跨层数据流一致性"}
