@@ -2,12 +2,18 @@
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useAudioStore } from "@/store/audio";
+import { useProfilesStore } from "@/store/profiles";
 import { useAudioImport } from "@/composables/useAudioImport";
+import { useRename } from "@/composables/useRename";
 
 const store = useAudioStore();
 const { files, currentIndex, currentFile } = storeToRefs(store);
+const profiles = useProfilesStore();
 const { isDragging, loading, pickFiles, pendingDownload, downloadTotal, downloadDone } =
   useAudioImport();
+// 当前文件的重命名预览（开关开启且有标题时）
+const { preview } = useRename();
+const currentPreview = computed(() => (currentFile.value ? preview(currentFile.value) : null));
 
 const progressLabel = computed(() =>
   files.value.length ? `${currentIndex.value + 1} / ${files.value.length}` : "0 / 0",
@@ -126,6 +132,21 @@ function formatDuration(secs: number | null): string {
               class="mt-1 w-40 rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-500"
             />
           </label>
+        </div>
+
+        <!-- 重命名预览 + 存为节目档案 -->
+        <div class="mt-4 flex items-center justify-between border-t border-neutral-800 pt-3">
+          <p v-if="currentPreview" class="truncate text-xs text-emerald-400" :title="currentPreview">
+            重命名预览：{{ currentPreview }}
+          </p>
+          <span v-else class="text-xs text-neutral-600">未开启重命名</span>
+          <button
+            class="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+            :disabled="!currentFile.album"
+            @click="profiles.openLibrary(currentFile.album ?? undefined)"
+          >
+            存为节目档案
+          </button>
         </div>
       </div>
 

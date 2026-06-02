@@ -1,6 +1,10 @@
 mod audio;
+mod db;
 mod icloud;
 mod llm;
+mod profiles;
+
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,13 +18,19 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // 初始化 SQLite 并注入托管状态（节目档案库等持久化数据）
+            let database = db::init().map_err(std::io::Error::other)?;
+            app.manage(database);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             audio::read_audio_metadata,
             icloud::check_icloud_status,
             icloud::start_icloud_download,
-            llm::parse_filenames
+            llm::parse_filenames,
+            profiles::list_show_profiles,
+            profiles::save_show_profile,
+            profiles::delete_show_profile
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

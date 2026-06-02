@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useAudioStore } from "@/store/audio";
 import { useSettingsStore } from "@/store/settings";
+import { useProfilesStore } from "@/store/profiles";
 import SettingsModal from "@/components/SettingsModal.vue";
+import ProfileLibraryModal from "@/components/ProfileLibraryModal.vue";
 
 const store = useAudioStore();
 const { total } = storeToRefs(store);
 
 const settings = useSettingsStore();
-// iCloud 未下载文件策略开关（PRD 5.6）
-const { icloudAutoDownload } = storeToRefs(settings);
+// iCloud 未下载文件策略开关（PRD 5.6）+ 重命名开关（PRD 5.2）
+const { icloudAutoDownload, renameEnabled } = storeToRefs(settings);
+
+// 节目档案库：启动时加载，弹窗开关由 store 跨视图共享
+const profiles = useProfilesStore();
+const { libraryOpen } = storeToRefs(profiles);
+onMounted(() => {
+  void profiles.load();
+});
 
 // 设置弹窗开关
 const settingsOpen = ref(false);
@@ -47,12 +56,25 @@ const settingsOpen = ref(false);
       <div class="flex items-center gap-4">
         <label
           class="flex cursor-pointer items-center gap-2 text-sm text-neutral-400"
+          title="开启后按模板重命名文件，关闭则只改元数据"
+        >
+          <input v-model="renameEnabled" type="checkbox" class="accent-sky-500" />
+          重命名
+        </label>
+        <label
+          class="flex cursor-pointer items-center gap-2 text-sm text-neutral-400"
           title="iCloud 中未下载的文件：开启则自动下载，关闭则仅提示"
         >
           <input v-model="icloudAutoDownload" type="checkbox" class="accent-sky-500" />
           iCloud 自动下载
         </label>
         <span class="text-sm text-neutral-400">已导入 {{ total }} 个文件</span>
+        <button
+          class="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+          @click="profiles.openLibrary()"
+        >
+          节目档案库
+        </button>
         <button
           class="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
           @click="settingsOpen = true"
@@ -63,6 +85,7 @@ const settingsOpen = ref(false);
     </header>
 
     <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
+    <ProfileLibraryModal :open="libraryOpen" @close="profiles.closeLibrary()" />
 
     <main class="min-h-0 flex-1 overflow-auto">
       <router-view />

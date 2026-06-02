@@ -4,16 +4,24 @@ import { storeToRefs } from "pinia";
 import { getCoreRowModel, useVueTable, type ColumnDef } from "@tanstack/vue-table";
 import { useAudioStore } from "@/store/audio";
 import { useSettingsStore } from "@/store/settings";
+import { useProfilesStore } from "@/store/profiles";
 import { useAudioImport } from "@/composables/useAudioImport";
 import { useLlmParse } from "@/composables/useLlmParse";
+import { useRename } from "@/composables/useRename";
 import type { AudioFileMeta } from "@/types/audio";
 
 const store = useAudioStore();
 const { files, confidenceByPath } = storeToRefs(store);
 const settings = useSettingsStore();
+const profiles = useProfilesStore();
 const { pickFiles, loading, isDragging, downloadTotal, downloadDone, pendingDownload } =
   useAudioImport();
 const { parsing, error, parse } = useLlmParse();
+// 重命名预览（开关开启且有标题时返回新名）
+const { renameEnabled, preview } = useRename();
+
+// 解析后未匹配到档案的节目名，引导用户建档
+const unmatchedAlbums = ref<string[]>([]);
 
 // 选中行集合（按 path），用于「批量应用」
 const selected = ref<Set<string>>(new Set());
@@ -58,6 +66,8 @@ async function parseAll(): Promise<void> {
   try {
     const results = await parse(files.value, settings.llmProvider);
     store.applyParseResults(results);
+    // 用节目档案库自动回填 artist/album，收集未匹配节目供引导建档
+    unmatchedAlbums.value = profiles.autoFill(files.value);
   } catch {
     // 错误已记录在 error，UI 顶部展示
   }
@@ -144,6 +154,20 @@ function confidenceLabel(path: string): string {
     >
       解析失败：{{ error }}
     </p>
+    <div
+      v-if="unmatchedAlbums.length > 0"
+      class="flex flex-wrap items-center gap-2 border-b border-emerald-900 bg-emerald-950/30 px-4 py-1.5 text-sm text-emerald-300"
+    >
+      <span>发现 {{ unmatchedAlbums.length }} 个新节目，建立档案后可自动匹配：</span>
+      <button
+        v-for="name in unmatchedAlbums"
+        :key="name"
+        class="rounded-md border border-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-900/50"
+        @click="profiles.openLibrary(name)"
+      >
+        + {{ name }}
+      </button>
+    </div>
 
     <!-- 表格 -->
     <div class="min-h-0 flex-1 overflow-auto">
@@ -159,6 +183,7 @@ function confidenceLabel(path: string): string {
             <th class="px-2 py-2">作者</th>
             <th class="w-16 px-2 py-2">集</th>
             <th class="w-14 px-2 py-2">置信</th>
+            <th v-if="renameEnabled" class="px-2 py-2">重命名预览</th>
           </tr>
         </thead>
         <tbody>
@@ -205,6 +230,13 @@ function confidenceLabel(path: string): string {
             </td>
             <td class="px-2 py-1 text-xs text-neutral-500">
               {{ confidenceLabel(row.original.path) }}
+            </td>
+            <td
+              v-if="renameEnabled"
+              class="max-w-[260px] truncate px-2 py-1 text-xs text-emerald-400"
+              :title="preview(row.original) ?? ''"
+            >
+              {{ preview(row.original) ?? "—" }}
             </td>
           </tr>
         </tbody>

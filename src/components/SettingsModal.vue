@@ -7,8 +7,8 @@ defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const settings = useSettingsStore();
-// LLM provider 配置（来源：设置 store，localStorage 持久化）
-const { llmProvider } = storeToRefs(settings);
+// LLM provider 配置 + 重命名模板（来源：设置 store，localStorage 持久化）
+const { llmProvider, renameTemplate } = storeToRefs(settings);
 
 type Preset = "deepseek" | "openai" | "anthropic";
 
@@ -80,6 +80,18 @@ function applyPreset(preset: Preset): void {
             class="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-500"
           />
         </label>
+      </div>
+
+      <div class="mt-5 border-t border-neutral-800 pt-4">
+        <h3 class="mb-2 text-sm font-semibold">重命名模板</h3>
+        <input
+          v-model="renameTemplate"
+          type="text"
+          class="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-500"
+        />
+        <p class="mt-1.5 text-xs text-neutral-500">
+          可用变量：{track} {title} {album} {artist} {ext}（在顶部开启「重命名」后预览生效）
+        </p>
       </div>
 
       <div class="mt-5 flex justify-end">
