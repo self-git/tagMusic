@@ -241,6 +241,13 @@
 - ✅ 项目命名确定为 `TagCast`
 - ✅ 前端栈确定为 Vue 3 + Vite + TypeScript（见 10.3）
 - 🚧 进入 Phase 2 实施，从 PR1 脚手架开始
+- ✅ PR5 元数据写回 + 原快照 + 一键重置已实现并**真机验证通过**
+
+### 12.1 排障记录：元数据写回不可见
+
+- 现象：写回后在 macOS Finder / Music.app 中看不到元数据改动，疑似"写入失败"。
+- 根因：lofty 默认写 **ID3v2.4**，而 macOS Finder / Music.app（及 Windows 资源管理器）仅支持到 **ID3v2.3**，导致改动不可见。
+- 修复：写回统一使用 `WriteOptions::use_id3v23(true)`（见 `src-tauri/src/write.rs`）。已真机验证写回/重置链路通过。
 
 ## 13. v2 后续计划（Backlog）
 
