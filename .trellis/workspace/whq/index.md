@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
+- **Total Sessions**: 2
 - **Last Active**: 2026-06-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~89 | Active |
+| `journal-1.md` | ~122 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-06-03 | TagCast v2: 封面 AI 自动导入 + 解析提示词自定义 | `6463df6` | `main` |
 | 1 | 2026-06-03 | PR6 测试 + DMG 打包 + README + DMG 排障 | `1c7bf11`, `60eff3f` | `main` |
 <!-- @@@/auto:session-history -->
 

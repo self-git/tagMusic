@@ -87,3 +87,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: TagCast v2: 封面 AI 自动导入 + 解析提示词自定义
+
+**Date**: 2026-06-03
+**Task**: TagCast v2: 封面 AI 自动导入 + 解析提示词自定义
+**Branch**: `main`
+
+### Summary
+
+实现 v2 两项能力。封面：cover.rs 同目录候选扫描 + read_image_data_url 缩略图，llm.rs match_covers 纯文本匹配(阈值0.5)，write.rs CoverOp + WriteInput.coverPath/clearCover，db.rs 快照扩列(had_cover/orig_cover/orig_cover_mime,含旧库幂等ALTER迁移)可重置还原，前端 useCover + store.coverByPath + TableBatch 封面列(缩略图/选图/清除/单击大图预览)。提示词：llm.rs ParseConfig 参数化(system/few-shot/temperature,留空回落默认,自定义失败追加恢复默认提示)，前端 settings.parseConfig 持久化 + SettingsModal 三字段编辑/恢复默认。关键修复:lofty 0.22 ID3v2.3 对 None 描述只写单字节0x00导致UTF-16回读BOM报错,补 Some("") 修复;webp 不支持故收窄jpg/jpeg/png。验证 cargo test(25)/clippy/fmt + npm type-check/test(10) 全绿。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6463df6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
