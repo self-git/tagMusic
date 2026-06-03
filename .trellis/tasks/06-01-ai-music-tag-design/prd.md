@@ -242,6 +242,13 @@
 - ✅ 前端栈确定为 Vue 3 + Vite + TypeScript（见 10.3）
 - 🚧 进入 Phase 2 实施，从 PR1 脚手架开始
 - ✅ PR5 元数据写回 + 原快照 + 一键重置已实现并**真机验证通过**
+- ✅ PR6 测试 + DMG 打包脚本 + README 已完成（2026-06-02）
+  - Rust 单元/集成测试 15 个：tag 读写(lofty)、快照→写回→重置往返、LLM 解析 mock(extract_json + assemble_results 按 index 回填)、节目关键词转换
+  - 前端 vitest 10 个：重命名模板渲染(5 变量 + 字符清洗)、节目档案匹配(match/autoFill)
+  - DMG 打包脚本 `scripts/build-dmg.sh`（含质量门禁）+ `npm run build:dmg`
+  - `README.md`：功能 / 安装 / 使用 / API key 申请 / 备份重置说明 / 已知限制清单
+  - 为可测性提取纯函数：`db::apply_schema`、`llm::assemble_results`（行为不变）
+  - 全量验证：`cargo test`(25 通过) / `cargo clippy -D warnings` / `cargo fmt --check` / `npm test` / `npm run type-check` 全绿
 
 ### 12.1 排障记录：元数据写回不可见
 
@@ -257,4 +264,9 @@
   - 匹配优先级（建议）：与音频同名图片 > 节目名同名图片 > 目录内 `cover.*` / `folder.*`
   - 依赖 PR5 的标签写回通道，并需扩展 lofty 的图片标签写入。
   - 当前 v1 不读取/写入任何封面（见 §9）。
+- **AI 解析配置用户可自定义**：把 LLM 解析的提示词等参数开放给用户在设置中编辑。
+  - 可配置项（建议）：system prompt、few-shot 示例、temperature、输出字段说明等。
+  - 现状（v1）：system prompt 与 few-shot 示例硬编码在 `src-tauri/src/llm.rs`（`SYSTEM_PROMPT` / `build_user_prompt`），用户无法改。
+  - 方向（v2）：设置项新增"解析提示词"自定义文本框，提供默认模板 + 恢复默认；前端把用户提示词随 `ProviderConfig` 一起传给后端 `parse_filenames`，后端用用户值替换硬编码常量。
+  - 注意：需保留"只输出 JSON 对象 + results 数组结构"的契约约束，避免用户改坏导致解析失败（可在 UI 提示或后端兜底校验）。
 - iTunes 播客专属标签、音乐元数据编辑、字幕转写、章节检测等（见 TL;DR v2 路线）。
