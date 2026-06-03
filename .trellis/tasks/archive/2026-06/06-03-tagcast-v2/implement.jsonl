@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-03-tagcast-v2/prd.md", "reason": "本任务需求与技术方案、实施计划（PR1-3）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有写回/快照/LLM 通道，避免重复实现"}
