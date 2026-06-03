@@ -120,3 +120,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: 封面内嵌读取与重置同步 + 文件名规则引擎
+
+**Date**: 2026-06-03
+**Task**: 封面内嵌读取与重置同步 + 文件名规则引擎
+**Branch**: `main`
+
+### Summary
+
+修复重置后封面不同步并新增导入读取内嵌封面缩略图（image crate）；新增文件名规则引擎：分隔/正则两类规则、优先级可拖拽调整、本地字段级叠加优先+AI兜底并结构化注入规则提示；规则支持固定值（常量赋值）解决归类需求，AI 可由自然语言生成规则与固定值；修复 WebKit 下拖拽排序失效（dragstart 写入 dataTransfer）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f32ef4a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
