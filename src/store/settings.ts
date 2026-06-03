@@ -1,12 +1,14 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import type { ProviderConfig, ParseConfig } from "@/types/llm";
+import type { FilenameRule } from "@/types/rule";
 
 const ICLOUD_KEY = "tagcast.settings.icloudAutoDownload";
 const LLM_KEY = "tagcast.settings.llmProvider";
 const RENAME_ENABLED_KEY = "tagcast.settings.renameEnabled";
 const RENAME_TEMPLATE_KEY = "tagcast.settings.renameTemplate";
 const PARSE_CONFIG_KEY = "tagcast.settings.parseConfig";
+const RULES_KEY = "tagcast.settings.filenameRules";
 
 // 重命名模板默认值（PRD 5.2），支持 {track} {title} {album} {artist} {ext}
 const DEFAULT_RENAME_TEMPLATE = "{track} - {title}.{ext}";
@@ -70,6 +72,18 @@ function readParseConfig(): ParseConfig {
   }
 }
 
+// 文件名规则默认空数组（无规则时解析链路等价于纯 AI，向后兼容）
+function readRules(): FilenameRule[] {
+  const raw = localStorage.getItem(RULES_KEY);
+  if (raw === null) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as FilenameRule[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * 应用设置：iCloud 下载策略 + LLM provider 配置，均持久化到 localStorage。
  */
@@ -83,6 +97,8 @@ export const useSettingsStore = defineStore("settings", () => {
   const renameTemplate = ref(readString(RENAME_TEMPLATE_KEY, DEFAULT_RENAME_TEMPLATE));
   // LLM 解析提示词自定义（v2 B 项），随 parse_filenames 透传后端
   const parseConfig = ref<ParseConfig>(readParseConfig());
+  // 文件名匹配规则（问题 2）：数组顺序即优先级，本地匹配 + 结构化注入 AI
+  const rules = ref<FilenameRule[]>(readRules());
 
   watch(icloudAutoDownload, (v) => {
     localStorage.setItem(ICLOUD_KEY, v ? "1" : "0");
@@ -112,6 +128,14 @@ export const useSettingsStore = defineStore("settings", () => {
     { deep: true },
   );
 
+  watch(
+    rules,
+    (v) => {
+      localStorage.setItem(RULES_KEY, JSON.stringify(v));
+    },
+    { deep: true },
+  );
+
   // 恢复某一项解析配置到默认值（设置面板"恢复默认"用）
   function resetParseField(field: keyof ParseConfig): void {
     parseConfig.value = { ...parseConfig.value, [field]: DEFAULT_PARSE_CONFIG[field] };
@@ -123,6 +147,7 @@ export const useSettingsStore = defineStore("settings", () => {
     renameEnabled,
     renameTemplate,
     parseConfig,
+    rules,
     resetParseField,
   };
 });

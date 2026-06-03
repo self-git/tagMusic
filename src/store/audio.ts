@@ -141,13 +141,16 @@ export const useAudioStore = defineStore("audio", () => {
     writtenPaths.value = written;
   }
 
-  // 重置成功后：还原 path/fileName 与四字段，并清除已写回标记
+  // 重置成功后：还原 path/fileName 与四字段，清除已写回标记 + 封面叠加层（回落显示文件真实封面）
   function applyResetOutcomes(outcomes: ResetOutcome[]): void {
     const written = new Set(writtenPaths.value);
     const indexByPath = new Map(files.value.map((f, i) => [f.path, i]));
     for (const o of outcomes) {
       written.delete(o.currentPath);
       written.delete(o.restoredPath);
+      // 清除 AI/手动封面叠加：重置后磁盘已还原原始封面，封面列应回落显示文件内嵌封面
+      delete coverByPath.value[o.currentPath];
+      delete coverByPath.value[o.restoredPath];
       const idx = indexByPath.get(o.currentPath);
       if (idx === undefined) continue;
       const f = files.value[idx];
@@ -217,6 +220,13 @@ export const useAudioStore = defineStore("audio", () => {
     return coverByPath.value[path];
   }
 
+  // 封面展示缩略图：cleared → 不显示；否则叠加层(AI/手动) 优先，回落文件内嵌封面(基准)
+  function displayThumb(path: string, embeddedCover: string | null): string | null {
+    const sel = coverByPath.value[path];
+    if (sel?.cleared) return null;
+    return sel?.thumb ?? embeddedCover;
+  }
+
   return {
     files,
     currentIndex,
@@ -231,6 +241,7 @@ export const useAudioStore = defineStore("audio", () => {
     setCoverThumb,
     clearCover,
     coverFor,
+    displayThumb,
     addFiles,
     removeByPaths,
     next,

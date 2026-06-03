@@ -30,6 +30,7 @@ pub fn run() {
             icloud::check_icloud_status,
             icloud::start_icloud_download,
             llm::parse_filenames,
+            llm::generate_filename_rule,
             llm::match_covers,
             cover::scan_cover_candidates,
             cover::read_image_data_url,

@@ -17,6 +17,7 @@ function file(overrides: Partial<AudioFileMeta> = {}): AudioFileMeta {
     artist: null,
     track: null,
     durationSecs: null,
+    embeddedCover: null,
     ...overrides,
   };
 }

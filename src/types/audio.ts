@@ -13,4 +13,6 @@ export interface AudioFileMeta {
   track: number | null;
   /** 时长（秒），读取标签时一并取出，仅展示用 */
   durationSecs: number | null;
+  /** 文件内嵌封面的缩略图 data URL（无则 null）：封面列展示的基准层，AI/手动匹配叠加其上 */
+  embeddedCover: string | null;
 }

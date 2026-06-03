@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { useSettingsStore } from "@/store/settings";
+import RuleEditor from "@/components/RuleEditor.vue";
 import type { ProviderConfig } from "@/types/llm";
 
 defineProps<{ open: boolean }>();
@@ -153,6 +154,10 @@ function applyPreset(preset: Preset): void {
             class="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-500"
           />
         </label>
+      </div>
+
+      <div class="mt-5 border-t border-neutral-800 pt-4">
+        <RuleEditor />
       </div>
 
       <div class="mt-5 flex justify-end">

@@ -11,6 +11,7 @@ function file(overrides: Partial<AudioFileMeta> = {}): AudioFileMeta {
     artist: "波米",
     track: 9,
     durationSecs: 1200,
+    embeddedCover: null,
     ...overrides,
   };
 }

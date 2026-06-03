@@ -1,3 +1,4 @@
+use lofty::picture::PictureType;
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use serde::Serialize;
@@ -14,6 +15,8 @@ pub struct AudioFileMeta {
     artist: Option<String>,
     track: Option<u32>,
     duration_secs: Option<u64>,
+    // 文件内嵌封面的缩略图 data URL（无内嵌封面或解码失败为 None）：作为表格封面列的基准展示
+    embedded_cover: Option<String>,
 }
 
 fn read_one(path: &str) -> Result<AudioFileMeta, String> {
@@ -41,6 +44,14 @@ fn read_one(path: &str) -> Result<AudioFileMeta, String> {
         None => (None, None, None, None),
     };
 
+    // 内嵌封面：优先前置封面，否则取首张；解码缩放为缩略图 data URL（best-effort）
+    let embedded_cover = tag
+        .and_then(|t| {
+            t.get_picture_type(PictureType::CoverFront)
+                .or_else(|| t.pictures().first())
+        })
+        .and_then(|pic| crate::cover::make_thumbnail_data_url(pic.data()));
+
     let duration_secs = Some(tagged.properties().duration().as_secs());
 
     Ok(AudioFileMeta {
@@ -51,6 +62,7 @@ fn read_one(path: &str) -> Result<AudioFileMeta, String> {
         artist,
         track,
         duration_secs,
+        embedded_cover,
     })
 }
 

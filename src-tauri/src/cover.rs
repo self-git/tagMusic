@@ -1,12 +1,16 @@
 use serde::Serialize;
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::path::Path;
 
 // 可作为封面嵌入的图片扩展名（lofty 0.22 支持，故不含 webp，PRD v2 A1）
 const IMAGE_EXTENSIONS: [&str; 3] = ["jpg", "jpeg", "png"];
 
+// 内嵌封面缩略图最长边像素（控制内存与渲染开销）
+const THUMBNAIL_MAX_PX: u32 = 160;
+
 // 标准 base64 编码（无依赖）：用于把封面图片转成 data URL 供前端 <img> 预览
-fn base64_encode(data: &[u8]) -> String {
+pub(crate) fn base64_encode(data: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
@@ -28,6 +32,18 @@ fn base64_encode(data: &[u8]) -> String {
         });
     }
     out
+}
+
+/// 把内嵌封面字节解码、缩放为小缩略图并编码为 JPEG data URL（供导入时展示）。
+/// best-effort：解码/编码失败返回 None，不阻断导入流程。
+pub(crate) fn make_thumbnail_data_url(bytes: &[u8]) -> Option<String> {
+    let img = image::load_from_memory(bytes).ok()?;
+    let thumb = img.thumbnail(THUMBNAIL_MAX_PX, THUMBNAIL_MAX_PX);
+    let mut buf: Vec<u8> = Vec::new();
+    thumb
+        .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Jpeg)
+        .ok()?;
+    Some(format!("data:image/jpeg;base64,{}", base64_encode(&buf)))
 }
 
 fn mime_for(path: &Path) -> &'static str {

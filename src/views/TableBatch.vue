@@ -10,7 +10,9 @@ import { useLlmParse } from "@/composables/useLlmParse";
 import { useCover } from "@/composables/useCover";
 import { useRename } from "@/composables/useRename";
 import { useWriteback } from "@/composables/useWriteback";
+import { applyRules, toRuleHints } from "@/composables/useRules";
 import type { AudioFileMeta } from "@/types/audio";
+import type { ParseResult } from "@/types/llm";
 
 const store = useAudioStore();
 const { files, confidenceByPath } = storeToRefs(store);
@@ -98,8 +100,32 @@ const table = useVueTable({
 
 async function parseAll(): Promise<void> {
   try {
-    const results = await parse(files.value, settings.llmProvider, settings.parseConfig);
-    store.applyParseResults(results);
+    // 问题 2：本地规则按优先级先跑（字段级叠加），仅把仍有空缺字段的文件交给 AI 兜底
+    const rules = settings.rules;
+    const localByPath = new Map(files.value.map((f) => [f.path, applyRules(f.fileName, rules)]));
+    const gapFiles = files.value.filter((f) => {
+      const m = localByPath.get(f.path);
+      return !m || m.title === undefined || m.album === undefined || m.artist === undefined || m.track === undefined;
+    });
+    const ai =
+      gapFiles.length > 0
+        ? await parse(gapFiles, settings.llmProvider, settings.parseConfig, toRuleHints(rules))
+        : [];
+    const aiByPath = new Map(ai.map((r) => [r.path, r]));
+    // 合并：本地命中字段优先，空缺字段用 AI 结果补
+    const merged: ParseResult[] = files.value.map((f) => {
+      const m = localByPath.get(f.path) ?? {};
+      const a = aiByPath.get(f.path);
+      return {
+        path: f.path,
+        title: m.title ?? a?.title ?? null,
+        album: m.album ?? a?.album ?? null,
+        artist: m.artist ?? a?.artist ?? null,
+        track: m.track ?? a?.track ?? null,
+        confidence: a?.confidence ?? null,
+      };
+    });
+    store.applyParseResults(merged);
     // 用节目档案库自动回填 artist/album，收集未匹配节目供引导建档
     unmatchedAlbums.value = profiles.autoFill(files.value);
     // 解析完成后基于 title/album 扫描并 AI 匹配同目录封面（best-effort）
@@ -109,9 +135,9 @@ async function parseAll(): Promise<void> {
   }
 }
 
-// 封面缩略图（data URL）；无选中返回 null
-function coverThumb(path: string): string | null {
-  return store.coverFor(path)?.thumb ?? null;
+// 封面展示缩略图（data URL）：叠加层(AI/手动) 优先，回落文件内嵌封面(基准)；无则 null
+function coverThumb(file: AudioFileMeta): string | null {
+  return store.displayThumb(file.path, file.embeddedCover);
 }
 // 封面大图预览（灯箱）：保存当前预览的 data URL，null 表示关闭
 const previewImage = ref<string | null>(null);
@@ -319,11 +345,11 @@ function confidenceLabel(path: string): string {
             <td class="px-2 py-1">
               <div class="flex items-center gap-1.5">
                 <img
-                  v-if="coverThumb(row.original.path)"
-                  :src="coverThumb(row.original.path) as string"
+                  v-if="coverThumb(row.original)"
+                  :src="coverThumb(row.original) as string"
                   class="h-8 w-8 cursor-zoom-in rounded object-cover"
                   :title="`封面匹配 ${coverConfidence(row.original.path)}（单击查看大图）`"
-                  @click="previewImage = coverThumb(row.original.path)"
+                  @click="previewImage = coverThumb(row.original)"
                 />
                 <span v-else class="text-xs text-neutral-600">无</span>
                 <button
@@ -334,7 +360,7 @@ function confidenceLabel(path: string): string {
                   选图
                 </button>
                 <button
-                  v-if="coverThumb(row.original.path)"
+                  v-if="coverThumb(row.original)"
                   class="text-xs text-neutral-500 hover:text-red-400"
                   title="清除封面（写回时移除）"
                   @click="store.clearCover(row.original.path)"

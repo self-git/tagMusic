@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use std::time::Duration;
 
 // 仅传文件名给 LLM（PRD 5.3：不上传音频内容）
@@ -91,11 +92,35 @@ pub const DEFAULT_FEW_SHOT: &str = "示例：\n\
 // 默认解析温度（用户可覆盖）
 pub const DEFAULT_TEMPERATURE: f64 = 0.0;
 
-// few-shot 示例（可自定义）+ 代码固定的结构契约 + 待解析列表，要求返回 {"results":[...]} 结构。
+/// 用户自定义文件名规则的提示（仅供 AI 参考以保持一致）：name + 前端格式化好的单行描述 detail。
+/// 规则本体在前端本地执行，这里只把「按优先级排序的规则清单」结构化注入 prompt（PRD 问题 2）。
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleHint {
+    name: String,
+    detail: String,
+}
+
+// 把规则清单格式化为有序文本块（空则返回空串）。顺序即优先级，由前端排好后传入。
+fn build_rules_block(rules: &[RuleHint]) -> String {
+    if rules.is_empty() {
+        return String::new();
+    }
+    let mut s = String::from(
+        "\n\n用户自定义文件名规则（按优先级从高到低，请遵循这些约定以保持字段一致；高优先级字段优先）：\n",
+    );
+    for (i, r) in rules.iter().enumerate() {
+        s.push_str(&format!("{}. {}：{}\n", i + 1, r.name, r.detail));
+    }
+    s
+}
+
+// few-shot 示例（可自定义）+ 用户规则块 + 代码固定的结构契约 + 待解析列表，要求返回 {"results":[...]} 结构。
 // 结构指令与列表恒由代码控制，防止用户改坏 index 回填链路（PRD v2 B3）。
-fn build_user_prompt(few_shot: &str, names: &[&str]) -> String {
-    let mut s = String::with_capacity(few_shot.len() + names.len() * 32 + 256);
+fn build_user_prompt(few_shot: &str, rules_block: &str, names: &[&str]) -> String {
+    let mut s = String::with_capacity(few_shot.len() + rules_block.len() + names.len() * 32 + 256);
     s.push_str(few_shot);
+    s.push_str(rules_block);
     s.push_str(
         "\n\n请按相同规则处理下列文件名（每行为「序号: 文件名」），\
         返回 JSON 对象 {\"results\":[{\"index\":<序号>,\"title\":...,\"album\":...,\"artist\":...,\"track\":...,\"confidence\":...}]}：\n\n",
@@ -235,6 +260,7 @@ pub async fn parse_filenames(
     files: Vec<ParseInput>,
     config: ProviderConfig,
     parse_config: Option<ParseConfig>,
+    rules: Option<Vec<RuleHint>>,
 ) -> Result<Vec<ParseResult>, String> {
     if files.is_empty() {
         return Ok(vec![]);
@@ -248,7 +274,8 @@ pub async fn parse_filenames(
     // 是否使用了自定义提示词（决定解析失败时是否追加"恢复默认"引导，PRD v2 B5）
     let customized = pc.system_prompt.is_some() || pc.few_shot.is_some();
 
-    let user = build_user_prompt(few_shot, &names);
+    let rules_block = build_rules_block(&rules.unwrap_or_default());
+    let user = build_user_prompt(few_shot, &rules_block, &names);
     let content = chat(&config, system, &user, temperature).await?;
 
     let parsed: LlmResults = serde_json::from_str(extract_json(&content)).map_err(|e| {
@@ -261,6 +288,70 @@ pub async fn parse_filenames(
 
     let paths: Vec<String> = files.iter().map(|f| f.path.clone()).collect();
     Ok(assemble_results(&paths, parsed))
+}
+
+// ===== AI 辅助生成文件名规则（问题 2）：用户自然语言描述 → 正则 / 分隔配置 =====
+
+const GENERATE_REGEX_SYSTEM: &str =
+    "你是文件名规则生成助手。根据用户的自然语言描述与示例文件名，生成一条「正则规则」。\n\
+要点：\n\
+- pattern：JavaScript 正则，作为命中条件；文件名已去掉扩展名再匹配。\n\
+- 能「从文件名里提取已存在文本」的字段，用命名捕获组 (?<title>)/(?<album>)/(?<artist>)/(?<track>)。\n\
+- constants：对「文件名里不存在、需要固定赋值或重新归类」的字段（如把含 QA\\d{3} 的统一归到节目「会员问答」、作者「波米」），放进 constants 对象。键只能是 title/album/artist/track，值为字符串。\n\
+- 不要用捕获组去捕获文件名里不存在的文字（捕获不到会导致整条规则不命中）。该用固定值的就放 constants。\n\
+- 只输出 JSON 对象 {\"pattern\":\"<正则>\",\"constants\":{\"album\":\"会员问答\",\"artist\":\"波米\"}}（constants 可省略或为空），不要任何多余文字或 markdown。";
+
+const GENERATE_SEPARATOR_SYSTEM: &str =
+    "你是文件名规则生成助手。根据用户的自然语言描述与示例文件名，生成一条「分隔规则」。\n\
+要点：\n\
+- separator：分隔符；文件名已去掉扩展名后用它切分，段序号从 0 开始。\n\
+- mapping：能「从某段提取已存在文本」的字段 → 段序号整数，键只能是 title/album/artist/track。\n\
+- constants：对「文件名里不存在、需要固定赋值或重新归类」的字段，放进 constants 对象（键同上，值为字符串）。\n\
+- 只输出 JSON 对象 {\"separator\":\"<分隔符>\",\"mapping\":{\"title\":0,\"album\":1},\"constants\":{\"artist\":\"波米\"}}（mapping/constants 可省略），不要任何多余文字或 markdown。";
+
+// 生成规则的用户提示：自然语言描述 + 可选示例文件名
+fn build_generate_prompt(description: &str, samples: &[String]) -> String {
+    let mut s = format!("需求描述：{description}\n");
+    if !samples.is_empty() {
+        s.push_str("\n示例文件名：\n");
+        for n in samples {
+            s.push_str(&format!("- {n}\n"));
+        }
+    }
+    s
+}
+
+/// AI 生成的规则配置：正则模式填 pattern；分隔模式填 separator + mapping；
+/// constants 为命中后固定赋值的字段（两种模式通用，对应前端规则的固定值）。
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateRuleResult {
+    #[serde(default)]
+    pattern: Option<String>,
+    #[serde(default)]
+    separator: Option<String>,
+    #[serde(default)]
+    mapping: Option<HashMap<String, usize>>,
+    #[serde(default)]
+    constants: Option<HashMap<String, String>>,
+}
+
+/// 用户自然语言描述 → 正则 / 分隔配置。rule_type: "regex" | "separator"。复用 provider 配置。
+#[tauri::command]
+pub async fn generate_filename_rule(
+    description: String,
+    rule_type: String,
+    samples: Vec<String>,
+    config: ProviderConfig,
+) -> Result<GenerateRuleResult, String> {
+    let system = match rule_type.as_str() {
+        "separator" => GENERATE_SEPARATOR_SYSTEM,
+        _ => GENERATE_REGEX_SYSTEM,
+    };
+    let user = build_generate_prompt(&description, &samples);
+    let content = chat(&config, system, &user, 0.0).await?;
+    serde_json::from_str(extract_json(&content))
+        .map_err(|e| format!("解析生成规则 JSON 失败: {e}; 原文: {content}"))
 }
 
 // ===== 封面 AI 文本匹配（v2 A2）：仅用候选图片文件名 + 已解析 title/album，不读像素 =====
@@ -461,7 +552,7 @@ mod tests {
     #[test]
     fn user_prompt_contains_names_and_indices() {
         let names = ["脏文件名一.mp3", "脏文件名二.m4a"];
-        let prompt = build_user_prompt(DEFAULT_FEW_SHOT, &names);
+        let prompt = build_user_prompt(DEFAULT_FEW_SHOT, "", &names);
         assert!(prompt.contains("0: 脏文件名一.mp3"));
         assert!(prompt.contains("1: 脏文件名二.m4a"));
         assert!(prompt.contains("results"));
@@ -473,10 +564,29 @@ mod tests {
     #[test]
     fn user_prompt_uses_custom_few_shot_but_keeps_contract() {
         let names = ["x.mp3"];
-        let prompt = build_user_prompt("我的自定义示例", &names);
+        let prompt = build_user_prompt("我的自定义示例", "", &names);
         assert!(prompt.contains("我的自定义示例"));
         assert!(!prompt.contains("反派影评"));
         assert!(prompt.contains("results"));
+    }
+
+    // 规则块为空时不注入；非空时按优先级有序列出 name+detail
+    #[test]
+    fn rules_block_orders_by_priority() {
+        assert_eq!(build_rules_block(&[]), "");
+        let rules = vec![
+            RuleHint {
+                name: "高优规则".to_string(),
+                detail: "正则 (?<title>.+)".to_string(),
+            },
+            RuleHint {
+                name: "次优规则".to_string(),
+                detail: "用「丨」切分".to_string(),
+            },
+        ];
+        let block = build_rules_block(&rules);
+        assert!(block.contains("1. 高优规则：正则 (?<title>.+)"));
+        assert!(block.contains("2. 次优规则：用「丨」切分"));
     }
 
     // resolved：非空白用户值优先；None/空白回落默认
