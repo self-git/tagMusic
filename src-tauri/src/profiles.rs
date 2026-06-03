@@ -103,3 +103,50 @@ pub fn delete_show_profile(db: State<'_, Db>, id: i64) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 关键词入库：trim 两端空白、过滤空项、逗号连接
+    #[test]
+    fn join_keywords_trims_and_filters_empty() {
+        let kw = vec![
+            " 反派影评 ".to_string(),
+            "".to_string(),
+            "  ".to_string(),
+            "爱发电".to_string(),
+        ];
+        assert_eq!(join_keywords(&kw), "反派影评,爱发电");
+    }
+
+    #[test]
+    fn join_keywords_empty_input() {
+        assert_eq!(join_keywords(&[]), "");
+    }
+
+    // 关键词出库：split 去空白、过滤空项
+    #[test]
+    fn split_keywords_parses_and_trims() {
+        assert_eq!(
+            split_keywords("反派影评, 爱发电 ,,知乎"),
+            vec![
+                "反派影评".to_string(),
+                "爱发电".to_string(),
+                "知乎".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn split_keywords_empty_string_yields_empty_vec() {
+        assert!(split_keywords("").is_empty());
+    }
+
+    // join → split 往返保持等价（库内逗号 TEXT 与数组互转无损）
+    #[test]
+    fn keywords_roundtrip() {
+        let original = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        assert_eq!(split_keywords(&join_keywords(&original)), original);
+    }
+}

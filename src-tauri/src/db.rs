@@ -14,11 +14,10 @@ fn db_path() -> Result<PathBuf, String> {
     Ok(dir.join("tagcast.db"))
 }
 
-/// 打开数据库并建表，返回托管状态。
+/// 建表/建索引（幂等）。抽成独立函数，便于测试用内存库复用同一套 schema。
 /// - show_profiles：节目档案库，以 album 唯一。
 /// - file_snapshots：写回前的原文件名 + 原 tag 快照，以 current_path 唯一，支撑一键重置。
-pub fn init() -> Result<Db, String> {
-    let conn = Connection::open(db_path()?).map_err(|e| e.to_string())?;
+pub fn apply_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS show_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +41,12 @@ pub fn init() -> Result<Db, String> {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_file_snapshots_current ON file_snapshots(current_path);",
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| e.to_string())
+}
+
+/// 打开数据库并建表，返回托管状态。
+pub fn init() -> Result<Db, String> {
+    let conn = Connection::open(db_path()?).map_err(|e| e.to_string())?;
+    apply_schema(&conn)?;
     Ok(Db(Mutex::new(conn)))
 }

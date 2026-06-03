@@ -284,6 +284,34 @@ mod tests {
     use super::*;
     use lofty::probe::Probe;
 
+    // 内存库 + 复用生产 schema，便于在不触碰磁盘 DB 的情况下测快照/重置链路
+    fn mem_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::apply_schema(&conn).unwrap();
+        conn
+    }
+
+    // 每个测试用进程内唯一文件名，避免并行测试相互覆盖
+    fn temp_wav(tag: &str) -> (std::path::PathBuf, String) {
+        let path = std::env::temp_dir().join(format!(
+            "tagcast_test_{}_{}_{:?}.wav",
+            tag,
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::write(&path, minimal_wav()).unwrap();
+        let s = path.to_string_lossy().to_string();
+        (path, s)
+    }
+
+    fn read_title(path: &str) -> Option<String> {
+        let tagged = Probe::open(path).unwrap().read().unwrap();
+        tagged
+            .primary_tag()
+            .or_else(|| tagged.first_tag())
+            .and_then(|t| t.title().map(|s| s.to_string()))
+    }
+
     // 构造一个最小可解析的 PCM WAV（lofty 可向其写入 ID3v2 / id3 chunk）
     fn minimal_wav() -> Vec<u8> {
         let data: [u8; 4] = [0, 0, 0, 0];
@@ -331,5 +359,131 @@ mod tests {
         assert_eq!(tag.track(), Some(7));
 
         std::fs::remove_file(&path).ok();
+    }
+
+    // None 字段应清除已有标签值（写回时取消选择某字段的语义）
+    #[test]
+    fn none_field_clears_existing_tag() {
+        let (path, path_str) = temp_wav("clear");
+
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: Some("先写一个标题".to_string()),
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+        })
+        .unwrap();
+        assert_eq!(read_title(&path_str).as_deref(), Some("先写一个标题"));
+
+        // 再次写回 title=None 应清除
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: None,
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+        })
+        .unwrap();
+        assert_eq!(read_title(&path_str), None);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // 快照只在首次写回前记录一次，后续写回不覆盖最初的原始值
+    #[test]
+    fn ensure_snapshot_captures_original_once() {
+        let (path, path_str) = temp_wav("snap_once");
+        let conn = mem_conn();
+
+        // 文件已带原始标题
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: Some("原始标题".to_string()),
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+        })
+        .unwrap();
+
+        ensure_snapshot(&conn, &path_str).unwrap();
+
+        // 改动文件后再次 ensure，不应覆盖快照里的"原始标题"
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: Some("被改过的标题".to_string()),
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+        })
+        .unwrap();
+        ensure_snapshot(&conn, &path_str).unwrap();
+
+        let snap = load_snapshot(&conn, &path_str).unwrap().unwrap();
+        assert_eq!(snap.title.as_deref(), Some("原始标题"));
+        assert_eq!(snap.original_path, path_str);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // 重置逻辑：快照 → 写新值 → restore 应把磁盘标签还原为原始值
+    #[test]
+    fn snapshot_then_restore_roundtrip() {
+        let (path, path_str) = temp_wav("restore");
+        let conn = mem_conn();
+
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: Some("原始标题".to_string()),
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+        })
+        .unwrap();
+
+        ensure_snapshot(&conn, &path_str).unwrap();
+
+        // 模拟用户写回新元数据
+        apply_fields(&WriteInput {
+            path: path_str.clone(),
+            title: Some("AI 清洗后的标题".to_string()),
+            album: Some("反派影评".to_string()),
+            artist: None,
+            track: Some(9),
+            new_name: None,
+        })
+        .unwrap();
+        assert_eq!(read_title(&path_str).as_deref(), Some("AI 清洗后的标题"));
+
+        // 重置：用快照原始值覆盖
+        let snap = load_snapshot(&conn, &path_str).unwrap().unwrap();
+        restore_fields(&path_str, &snap).unwrap();
+        assert_eq!(read_title(&path_str).as_deref(), Some("原始标题"));
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // 重命名：文件落到新名 + 快照 current_path 同步更新
+    #[test]
+    fn rename_file_moves_and_updates_snapshot() {
+        let (path, path_str) = temp_wav("rename");
+        let conn = mem_conn();
+        ensure_snapshot(&conn, &path_str).unwrap();
+
+        let new_name = format!("renamed_{}.wav", std::process::id());
+        let new_path = rename_file(&conn, &path_str, &new_name).unwrap();
+
+        assert!(Path::new(&new_path).exists());
+        assert!(!path.exists());
+        // 快照应能用新路径查到
+        assert!(load_snapshot(&conn, &new_path).unwrap().is_some());
+        assert!(load_snapshot(&conn, &path_str).unwrap().is_none());
+
+        std::fs::remove_file(&new_path).ok();
     }
 }
