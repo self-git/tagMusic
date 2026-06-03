@@ -53,3 +53,37 @@
 - 不创建子任务（PR1-PR6 子任务等用户确认后开）
 - 不 git init（待用户确认后开）
 
+
+
+## Session 1: PR6 测试 + DMG 打包 + README + DMG 排障
+
+**Date**: 2026-06-03
+**Task**: PR6 测试 + DMG 打包 + README + DMG 排障
+**Branch**: `main`
+
+### Summary
+
+完成 PR6：Rust 15 + 前端 10 个测试、scripts/build-dmg.sh、README；定位并修复 bundle_dmg.sh 的 AppleScript 失败（tauri:build 设 CI=true 触发 --skip-jenkins），真机验证 DMG 打包通过；PRD 记录 PR6 完成并新增 v2「AI 解析提示词用户可自定义」backlog。任务已归档。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1c7bf11` | (see git log) |
+| `60eff3f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
