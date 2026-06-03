@@ -7,8 +7,8 @@ defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const settings = useSettingsStore();
-// LLM provider 配置 + 重命名模板（来源：设置 store，localStorage 持久化）
-const { llmProvider, renameTemplate } = storeToRefs(settings);
+// LLM provider 配置 + 重命名模板 + 解析提示词（来源：设置 store，localStorage 持久化）
+const { llmProvider, renameTemplate, parseConfig } = storeToRefs(settings);
 
 type Preset = "deepseek" | "openai" | "anthropic";
 
@@ -30,7 +30,7 @@ function applyPreset(preset: Preset): void {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
     @click.self="emit('close')"
   >
-    <div class="w-[480px] rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+    <div class="max-h-[85vh] w-[480px] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 p-5">
       <h2 class="mb-4 text-base font-semibold">LLM Provider 设置</h2>
 
       <div class="mb-4 flex gap-2">
@@ -92,6 +92,67 @@ function applyPreset(preset: Preset): void {
         <p class="mt-1.5 text-xs text-neutral-500">
           可用变量：{track} {title} {album} {artist} {ext}（在顶部开启「重命名」后预览生效）
         </p>
+      </div>
+
+      <div class="mt-5 border-t border-neutral-800 pt-4">
+        <h3 class="mb-2 text-sm font-semibold">AI 解析提示词</h3>
+        <p class="mb-3 text-xs text-neutral-500">
+          自定义文件名解析的提示词；留空则使用默认。返回结构（results 数组）由程序固定，不受影响。
+        </p>
+
+        <div class="mb-3">
+          <div class="mb-1 flex items-center justify-between">
+            <span class="text-xs text-neutral-500">System Prompt</span>
+            <button
+              class="text-xs text-sky-400 hover:text-sky-300"
+              @click="settings.resetParseField('systemPrompt')"
+            >
+              恢复默认
+            </button>
+          </div>
+          <textarea
+            v-model="parseConfig.systemPrompt"
+            rows="6"
+            class="w-full resize-y rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs outline-none focus:border-sky-500"
+          ></textarea>
+        </div>
+
+        <div class="mb-3">
+          <div class="mb-1 flex items-center justify-between">
+            <span class="text-xs text-neutral-500">Few-shot 示例</span>
+            <button
+              class="text-xs text-sky-400 hover:text-sky-300"
+              @click="settings.resetParseField('fewShot')"
+            >
+              恢复默认
+            </button>
+          </div>
+          <textarea
+            v-model="parseConfig.fewShot"
+            rows="4"
+            class="w-full resize-y rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs outline-none focus:border-sky-500"
+          ></textarea>
+        </div>
+
+        <label class="block">
+          <div class="mb-1 flex items-center justify-between">
+            <span class="text-xs text-neutral-500">Temperature（0~2）</span>
+            <button
+              class="text-xs text-sky-400 hover:text-sky-300"
+              @click="settings.resetParseField('temperature')"
+            >
+              恢复默认
+            </button>
+          </div>
+          <input
+            v-model.number="parseConfig.temperature"
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            class="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-500"
+          />
+        </label>
       </div>
 
       <div class="mt-5 flex justify-end">

@@ -16,7 +16,7 @@ fn db_path() -> Result<PathBuf, String> {
 
 /// 建表/建索引（幂等）。抽成独立函数，便于测试用内存库复用同一套 schema。
 /// - show_profiles：节目档案库，以 album 唯一。
-/// - file_snapshots：写回前的原文件名 + 原 tag 快照，以 current_path 唯一，支撑一键重置。
+/// - file_snapshots：写回前的原文件名 + 原 tag + 原封面快照，以 current_path 唯一，支撑一键重置。
 pub fn apply_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS show_profiles (
@@ -37,11 +37,50 @@ pub fn apply_schema(conn: &Connection) -> Result<(), String> {
             orig_album TEXT,
             orig_artist TEXT,
             orig_track INTEGER,
+            had_cover INTEGER NOT NULL DEFAULT 0,
+            orig_cover BLOB,
+            orig_cover_mime TEXT,
             created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_file_snapshots_current ON file_snapshots(current_path);",
     )
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+
+    // v1→v2 迁移：已发布旧库的 file_snapshots 缺封面列，幂等补列（CREATE TABLE IF NOT EXISTS 不改已存在表）
+    add_column_if_missing(
+        conn,
+        "file_snapshots",
+        "had_cover",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
+    add_column_if_missing(conn, "file_snapshots", "orig_cover", "BLOB")?;
+    add_column_if_missing(conn, "file_snapshots", "orig_cover_mime", "TEXT")?;
+    Ok(())
+}
+
+// 若表缺少指定列则 ALTER 补上（用 PRAGMA table_info 判断，避免重复添加报错）
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    decl: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|e| e.to_string())?;
+    let exists = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .any(|name| name == column);
+    if !exists {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// 打开数据库并建表，返回托管状态。

@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { ParseResult, ProviderConfig } from "@/types/llm";
+import type { ParseResult, ProviderConfig, ParseConfig } from "@/types/llm";
 import type { AudioFileMeta } from "@/types/audio";
 
 /**
@@ -13,13 +13,14 @@ export function useLlmParse() {
   async function parse(
     files: AudioFileMeta[],
     config: ProviderConfig,
+    parseConfig?: ParseConfig,
   ): Promise<ParseResult[]> {
     if (files.length === 0) return [];
     parsing.value = true;
     error.value = null;
     try {
       const inputs = files.map((f) => ({ path: f.path, fileName: f.fileName }));
-      return await invoke<ParseResult[]>("parse_filenames", { files: inputs, config });
+      return await invoke<ParseResult[]>("parse_filenames", { files: inputs, config, parseConfig });
     } catch (e) {
       error.value = String(e);
       throw e;

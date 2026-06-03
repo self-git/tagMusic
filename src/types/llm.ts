@@ -9,6 +9,16 @@ export interface ProviderConfig {
   model: string;
 }
 
+/**
+ * 用户可自定义的解析配置（v2 B 项），随 parse_filenames 透传后端。
+ * 结构契约（results 数组）由后端代码掌控，不在此开放。
+ */
+export interface ParseConfig {
+  systemPrompt: string;
+  fewShot: string;
+  temperature: number;
+}
+
 /** 单个文件名的 LLM 解析结果，对应 Rust 端 ParseResult */
 export interface ParseResult {
   path: string;

@@ -40,14 +40,20 @@ export function useWriteback() {
     working.value = true;
     error.value = null;
     try {
-      const inputs: WriteInput[] = files.map((f) => ({
-        path: f.path,
-        title: f.title,
-        album: f.album,
-        artist: f.artist,
-        track: f.track,
-        newName: buildNewName(f),
-      }));
+      const inputs: WriteInput[] = files.map((f) => {
+        // 封面：选中则写入路径，显式清除则置 clearCover，否则保持文件原封面不动
+        const cover = store.coverFor(f.path);
+        return {
+          path: f.path,
+          title: f.title,
+          album: f.album,
+          artist: f.artist,
+          track: f.track,
+          newName: buildNewName(f),
+          coverPath: cover?.chosen ?? null,
+          clearCover: cover?.cleared ?? false,
+        };
+      });
       const outcomes = await invoke<WriteOutcome[]>("write_metadata", { files: inputs });
       store.applyWriteOutcomes(outcomes);
       flash(`已成功写回 ${outcomes.length} 个文件的元数据`);

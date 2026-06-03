@@ -1,4 +1,5 @@
 mod audio;
+mod cover;
 mod db;
 mod icloud;
 mod llm;
@@ -29,6 +30,9 @@ pub fn run() {
             icloud::check_icloud_status,
             icloud::start_icloud_download,
             llm::parse_filenames,
+            llm::match_covers,
+            cover::scan_cover_candidates,
+            cover::read_image_data_url,
             profiles::list_show_profiles,
             profiles::save_show_profile,
             profiles::delete_show_profile,

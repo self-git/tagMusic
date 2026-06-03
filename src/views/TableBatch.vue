@@ -7,6 +7,7 @@ import { useSettingsStore } from "@/store/settings";
 import { useProfilesStore } from "@/store/profiles";
 import { useAudioImport } from "@/composables/useAudioImport";
 import { useLlmParse } from "@/composables/useLlmParse";
+import { useCover } from "@/composables/useCover";
 import { useRename } from "@/composables/useRename";
 import { useWriteback } from "@/composables/useWriteback";
 import type { AudioFileMeta } from "@/types/audio";
@@ -18,6 +19,8 @@ const profiles = useProfilesStore();
 const { pickFiles, loading, isDragging, downloadTotal, downloadDone, pendingDownload } =
   useAudioImport();
 const { parsing, error, parse } = useLlmParse();
+// 封面自动导入：扫描同目录候选 + AI 匹配 + 手动选图
+const { matching, error: coverError, scanAndMatch, pickCover } = useCover();
 // 重命名预览（开关开启且有标题时返回新名）
 const { renameEnabled, preview } = useRename();
 // 元数据写回与重置
@@ -95,13 +98,26 @@ const table = useVueTable({
 
 async function parseAll(): Promise<void> {
   try {
-    const results = await parse(files.value, settings.llmProvider);
+    const results = await parse(files.value, settings.llmProvider, settings.parseConfig);
     store.applyParseResults(results);
     // 用节目档案库自动回填 artist/album，收集未匹配节目供引导建档
     unmatchedAlbums.value = profiles.autoFill(files.value);
+    // 解析完成后基于 title/album 扫描并 AI 匹配同目录封面（best-effort）
+    await scanAndMatch(files.value, settings.llmProvider);
   } catch {
     // 错误已记录在 error，UI 顶部展示
   }
+}
+
+// 封面缩略图（data URL）；无选中返回 null
+function coverThumb(path: string): string | null {
+  return store.coverFor(path)?.thumb ?? null;
+}
+// 封面大图预览（灯箱）：保存当前预览的 data URL，null 表示关闭
+const previewImage = ref<string | null>(null);
+function coverConfidence(path: string): string {
+  const c = store.coverFor(path)?.confidence;
+  return c === null || c === undefined ? "" : `${Math.round(c * 100)}%`;
 }
 
 function confidenceLabel(path: string): string {
@@ -130,10 +146,10 @@ function confidenceLabel(path: string): string {
       </button>
       <button
         class="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
-        :disabled="parsing || files.length === 0"
+        :disabled="parsing || matching || files.length === 0"
         @click="parseAll"
       >
-        {{ parsing ? "AI 解析中…" : "AI 解析" }}
+        {{ parsing ? "AI 解析中…" : matching ? "匹配封面中…" : "AI 解析" }}
       </button>
       <button
         class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
@@ -213,6 +229,12 @@ function confidenceLabel(path: string): string {
       写回/重置失败：{{ writeError }}
     </p>
     <p
+      v-if="coverError"
+      class="border-b border-amber-900 bg-amber-950/40 px-4 py-1.5 text-sm text-amber-300"
+    >
+      封面匹配失败（不影响元数据写回）：{{ coverError }}
+    </p>
+    <p
       v-if="notice"
       class="border-b border-emerald-900 bg-emerald-950/40 px-4 py-1.5 text-sm text-emerald-300"
     >
@@ -246,6 +268,7 @@ function confidenceLabel(path: string): string {
             <th class="px-2 py-2">节目</th>
             <th class="px-2 py-2">作者</th>
             <th class="w-16 px-2 py-2">集</th>
+            <th class="w-28 px-2 py-2">封面</th>
             <th class="w-14 px-2 py-2">置信</th>
             <th v-if="renameEnabled" class="px-2 py-2">重命名预览</th>
             <th class="w-24 px-2 py-2"></th>
@@ -293,6 +316,33 @@ function confidenceLabel(path: string): string {
                 class="w-14 rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-neutral-700 focus:border-sky-500 focus:outline-none"
               />
             </td>
+            <td class="px-2 py-1">
+              <div class="flex items-center gap-1.5">
+                <img
+                  v-if="coverThumb(row.original.path)"
+                  :src="coverThumb(row.original.path) as string"
+                  class="h-8 w-8 cursor-zoom-in rounded object-cover"
+                  :title="`封面匹配 ${coverConfidence(row.original.path)}（单击查看大图）`"
+                  @click="previewImage = coverThumb(row.original.path)"
+                />
+                <span v-else class="text-xs text-neutral-600">无</span>
+                <button
+                  class="text-xs text-sky-400 hover:underline"
+                  title="手动选择封面图片"
+                  @click="pickCover(row.original.path)"
+                >
+                  选图
+                </button>
+                <button
+                  v-if="coverThumb(row.original.path)"
+                  class="text-xs text-neutral-500 hover:text-red-400"
+                  title="清除封面（写回时移除）"
+                  @click="store.clearCover(row.original.path)"
+                >
+                  清除
+                </button>
+              </div>
+            </td>
             <td class="px-2 py-1 text-xs text-neutral-500">
               {{ confidenceLabel(row.original.path) }}
             </td>
@@ -328,6 +378,19 @@ function confidenceLabel(path: string): string {
       <div v-else class="p-10 text-center text-neutral-500">
         还没有文件，点击「添加文件」或直接拖入音频文件。
       </div>
+    </div>
+
+    <!-- 封面大图预览灯箱：点击遮罩关闭 -->
+    <div
+      v-if="previewImage"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
+      @click="previewImage = null"
+    >
+      <img
+        :src="previewImage"
+        class="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+        alt="封面预览"
+      />
     </div>
   </div>
 </template>

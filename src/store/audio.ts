@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import type { AudioFileMeta } from "@/types/audio";
 import type { ParseResult } from "@/types/llm";
 import type { WriteOutcome, ResetOutcome } from "@/types/write";
+import type { CoverCandidates, CoverMatchResult, CoverSelection } from "@/types/cover";
 
 // 可整列填充/批量应用的文本字段
 type EditableTextField = "title" | "album" | "artist";
@@ -23,6 +24,8 @@ export const useAudioStore = defineStore("audio", () => {
   const confidenceByPath = ref<Record<string, number | null>>({});
   // 已写回（存在原始快照）的文件当前路径，决定是否可重置
   const writtenPaths = ref<Set<string>>(new Set());
+  // 封面选择状态，按文件 path 索引（候选/AI 选中/手动/清除，随写回一起落盘）
+  const coverByPath = ref<Record<string, CoverSelection>>({});
 
   const currentFile = computed<AudioFileMeta | null>(
     () => files.value[currentIndex.value] ?? null,
@@ -48,6 +51,7 @@ export const useAudioStore = defineStore("audio", () => {
     const written = new Set(writtenPaths.value);
     for (const p of paths) {
       delete confidenceByPath.value[p];
+      delete coverByPath.value[p];
       written.delete(p);
     }
     writtenPaths.value = written;
@@ -69,6 +73,7 @@ export const useAudioStore = defineStore("audio", () => {
     currentIndex.value = 0;
     confidenceByPath.value = {};
     writtenPaths.value = new Set();
+    coverByPath.value = {};
   }
 
   // 回填 LLM 解析结果：按 path 匹配，更新四字段并记录置信度
@@ -121,6 +126,11 @@ export const useAudioStore = defineStore("audio", () => {
           confidenceByPath.value[o.newPath] = conf;
           delete confidenceByPath.value[o.oldPath];
         }
+        const cover = coverByPath.value[o.oldPath];
+        if (cover !== undefined) {
+          coverByPath.value[o.newPath] = cover;
+          delete coverByPath.value[o.oldPath];
+        }
         f.path = o.newPath;
         f.fileName = basename(o.newPath);
       }
@@ -159,6 +169,54 @@ export const useAudioStore = defineStore("audio", () => {
     writtenPaths.value = written;
   }
 
+  // 默认封面选择态（无候选、不写、未清除）
+  function emptyCover(): CoverSelection {
+    return { candidates: [], chosen: null, confidence: null, cleared: false, thumb: null };
+  }
+
+  // 回填扫描到的同目录候选图片
+  function setCoverCandidates(list: CoverCandidates[]): void {
+    for (const c of list) {
+      const prev = coverByPath.value[c.path] ?? emptyCover();
+      coverByPath.value[c.path] = { ...prev, candidates: c.images };
+    }
+  }
+
+  // 回填 AI 封面匹配结果（chosen 为完整图片路径或 null）
+  function applyCoverMatches(results: CoverMatchResult[]): void {
+    for (const r of results) {
+      const prev = coverByPath.value[r.path] ?? emptyCover();
+      coverByPath.value[r.path] = {
+        ...prev,
+        chosen: r.chosen,
+        confidence: r.confidence,
+        cleared: false,
+      };
+    }
+  }
+
+  // 手动指定封面图片（覆盖 AI 选择）
+  function setCover(path: string, image: string, thumb: string | null): void {
+    const prev = coverByPath.value[path] ?? emptyCover();
+    coverByPath.value[path] = { ...prev, chosen: image, cleared: false, thumb };
+  }
+
+  // 设置缩略图 data URL（异步加载后回填）
+  function setCoverThumb(path: string, thumb: string | null): void {
+    const prev = coverByPath.value[path];
+    if (prev) coverByPath.value[path] = { ...prev, thumb };
+  }
+
+  // 清除封面：写回时移除文件已有封面
+  function clearCover(path: string): void {
+    const prev = coverByPath.value[path] ?? emptyCover();
+    coverByPath.value[path] = { ...prev, chosen: null, cleared: true, thumb: null };
+  }
+
+  function coverFor(path: string): CoverSelection | undefined {
+    return coverByPath.value[path];
+  }
+
   return {
     files,
     currentIndex,
@@ -166,6 +224,13 @@ export const useAudioStore = defineStore("audio", () => {
     total,
     confidenceByPath,
     writtenPaths,
+    coverByPath,
+    setCoverCandidates,
+    applyCoverMatches,
+    setCover,
+    setCoverThumb,
+    clearCover,
+    coverFor,
     addFiles,
     removeByPaths,
     next,

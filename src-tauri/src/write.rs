@@ -1,10 +1,12 @@
 use crate::db::Db;
 use lofty::config::WriteOptions;
+use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use lofty::tag::Tag;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 use std::path::Path;
 use tauri::State;
 
@@ -19,6 +21,20 @@ pub struct WriteInput {
     track: Option<u32>,
     /// 重命名后的文件名（含扩展名）；为空表示不重命名
     new_name: Option<String>,
+    /// 要嵌入的封面图片路径（jpg/jpeg/png）；为空表示不设置封面（v2）
+    #[serde(default)]
+    cover_path: Option<String>,
+    /// 显式清除文件已有封面（v2）；与 cover_path 互斥，cover_path 优先
+    #[serde(default)]
+    clear_cover: bool,
+}
+
+/// 封面写入操作：保持不动 / 清除 / 从文件嵌入 / 从原始字节还原（重置用）
+enum CoverOp {
+    Keep,
+    Clear,
+    FromFile(String),
+    FromBytes(Vec<u8>, Option<String>),
 }
 
 /// 写回结果：旧路径 → 新路径（未重命名时两者相同），供前端更新行。
@@ -48,6 +64,10 @@ struct Snapshot {
     album: Option<String>,
     artist: Option<String>,
     track: Option<u32>,
+    // 原封面：had_cover 标记导入前是否本就有封面，用于重置时还原或清除（v2）
+    had_cover: bool,
+    cover: Option<Vec<u8>>,
+    cover_mime: Option<String>,
 }
 
 // macOS Finder / Music.app 仅支持到 ID3v2.3，lofty 默认写 v2.4 会导致改动不可见，
@@ -56,8 +76,34 @@ fn write_options() -> WriteOptions {
     WriteOptions::default().use_id3v23(true)
 }
 
-// 将四字段写入文件的主标签：Some 设置，None 清除
-fn apply_fields(input: &WriteInput) -> Result<(), String> {
+// 从图片文件路径构造封面 Picture（lofty 0.22 支持 jpg/jpeg/png/gif/bmp/tiff，不支持 webp）
+fn cover_from_file(path: &str) -> Result<Picture, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("读取封面图片失败 {path}: {e}"))?;
+    let mut pic = Picture::from_reader(&mut Cursor::new(bytes))
+        .map_err(|e| format!("不支持的封面图片格式 {path}: {e}（仅支持 jpg/jpeg/png）"))?;
+    pic.set_pic_type(PictureType::CoverFront);
+    Ok(pic)
+}
+
+// 用原始字节 + MIME 还原封面（重置链路用，字节来自快照，无需再次校验签名）
+fn cover_from_bytes(bytes: Vec<u8>, mime: Option<String>) -> Picture {
+    let mime = mime.map(|m| MimeType::from_str(&m));
+    Picture::new_unchecked(PictureType::CoverFront, mime, None, bytes)
+}
+
+// 设置唯一前置封面：先清掉已有前置封面再写入，避免重复。
+// 描述补为空串：lofty 在 ID3v2.3 下对 None 描述只写单字节 0x00，按 UTF-16 回读会触发 BOM 解析失败，
+// 设为 Some("") 可写出带 BOM 的合法空描述，保证 MP3 等 ID3v2.3 容器封面可被正常读取。
+fn set_front_cover(tag: &mut Tag, mut pic: Picture) {
+    if pic.description().is_none() {
+        pic.set_description(Some(String::new()));
+    }
+    tag.remove_picture_type(PictureType::CoverFront);
+    tag.push_picture(pic);
+}
+
+// 将四字段写入文件的主标签：Some 设置，None 清除；并按 CoverOp 处理封面
+fn apply_fields(input: &WriteInput, cover: CoverOp) -> Result<(), String> {
     let p = Path::new(&input.path);
     let mut tagged = Probe::open(p)
         .map_err(|e| e.to_string())?
@@ -98,9 +144,25 @@ fn apply_fields(input: &WriteInput) -> Result<(), String> {
         }
     }
 
+    match cover {
+        CoverOp::Keep => {}
+        CoverOp::Clear => tag.remove_picture_type(PictureType::CoverFront),
+        CoverOp::FromFile(path) => set_front_cover(tag, cover_from_file(&path)?),
+        CoverOp::FromBytes(bytes, mime) => set_front_cover(tag, cover_from_bytes(bytes, mime)),
+    }
+
     tagged
         .save_to_path(p, write_options())
         .map_err(|e| e.to_string())
+}
+
+// 从写回入参解析封面操作：clear_cover 优先级低于 cover_path
+fn cover_op_from_input(input: &WriteInput) -> CoverOp {
+    match input.cover_path.as_deref() {
+        Some(path) if !path.is_empty() => CoverOp::FromFile(path.to_string()),
+        _ if input.clear_cover => CoverOp::Clear,
+        _ => CoverOp::Keep,
+    }
 }
 
 // 首次写回前，读取磁盘当前真实状态作为原始快照（已存在则不覆盖，保留最初值）
@@ -137,12 +199,25 @@ fn ensure_snapshot(conn: &Connection, path: &str) -> Result<(), String> {
         ),
         None => (None, None, None, None),
     };
+    // 原封面快照：优先前置封面，否则取首张；记录字节 + MIME，重置时据此还原（v2）
+    let orig_pic = tag.and_then(|t| {
+        t.get_picture_type(PictureType::CoverFront)
+            .or_else(|| t.pictures().first())
+    });
+    let (cover, cover_mime) = match orig_pic {
+        Some(pic) => (
+            Some(pic.data().to_vec()),
+            pic.mime_type().map(|m| m.as_str().to_string()),
+        ),
+        None => (None, None),
+    };
+    let had_cover = cover.is_some();
 
     conn.execute(
         "INSERT INTO file_snapshots
-            (current_path, original_path, original_file_name, orig_title, orig_album, orig_artist, orig_track)
-         VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?6)",
-        params![path, file_name, title, album, artist, track],
+            (current_path, original_path, original_file_name, orig_title, orig_album, orig_artist, orig_track, had_cover, orig_cover, orig_cover_mime)
+         VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![path, file_name, title, album, artist, track, had_cover, cover, cover_mime],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -179,7 +254,7 @@ pub fn write_metadata(
     let mut outcomes = Vec::with_capacity(files.len());
     for input in &files {
         ensure_snapshot(&conn, &input.path)?;
-        apply_fields(input).map_err(|e| {
+        apply_fields(input, cover_op_from_input(input)).map_err(|e| {
             log::warn!("写回元数据失败 {}: {e}", input.path);
             e
         })?;
@@ -198,7 +273,7 @@ pub fn write_metadata(
 
 fn load_snapshot(conn: &Connection, path: &str) -> Result<Option<Snapshot>, String> {
     conn.query_row(
-        "SELECT original_path, orig_title, orig_album, orig_artist, orig_track
+        "SELECT original_path, orig_title, orig_album, orig_artist, orig_track, had_cover, orig_cover, orig_cover_mime
          FROM file_snapshots WHERE current_path = ?1",
         params![path],
         |row| {
@@ -208,6 +283,9 @@ fn load_snapshot(conn: &Connection, path: &str) -> Result<Option<Snapshot>, Stri
                 album: row.get(2)?,
                 artist: row.get(3)?,
                 track: row.get(4)?,
+                had_cover: row.get(5)?,
+                cover: row.get(6)?,
+                cover_mime: row.get(7)?,
             })
         },
     )
@@ -215,16 +293,25 @@ fn load_snapshot(conn: &Connection, path: &str) -> Result<Option<Snapshot>, Stri
     .map_err(|e| e.to_string())
 }
 
-// 用快照中的原始四字段覆盖写回当前文件
+// 用快照中的原始四字段 + 原封面覆盖写回当前文件：原本有封面则还原字节，原本无则清除本次写入的封面
 fn restore_fields(path: &str, snap: &Snapshot) -> Result<(), String> {
-    apply_fields(&WriteInput {
-        path: path.to_string(),
-        title: snap.title.clone(),
-        album: snap.album.clone(),
-        artist: snap.artist.clone(),
-        track: snap.track,
-        new_name: None,
-    })
+    let cover = match (snap.had_cover, &snap.cover) {
+        (true, Some(bytes)) => CoverOp::FromBytes(bytes.clone(), snap.cover_mime.clone()),
+        _ => CoverOp::Clear,
+    };
+    apply_fields(
+        &WriteInput {
+            path: path.to_string(),
+            title: snap.title.clone(),
+            album: snap.album.clone(),
+            artist: snap.artist.clone(),
+            track: snap.track,
+            new_name: None,
+            cover_path: None,
+            clear_cover: false,
+        },
+        cover,
+    )
 }
 
 /// 一键重置：恢复原 tag + 原文件名，并删除快照（文件回到未处理状态）。无快照的路径跳过。
@@ -342,14 +429,19 @@ mod tests {
         std::fs::write(&path, minimal_wav()).unwrap();
         let path_str = path.to_string_lossy().to_string();
 
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("单元测试标题".to_string()),
-            album: Some("测试节目".to_string()),
-            artist: None,
-            track: Some(7),
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("单元测试标题".to_string()),
+                album: Some("测试节目".to_string()),
+                artist: None,
+                track: Some(7),
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .expect("写入应成功");
 
         let tagged = Probe::open(&path).unwrap().read().unwrap();
@@ -366,26 +458,36 @@ mod tests {
     fn none_field_clears_existing_tag() {
         let (path, path_str) = temp_wav("clear");
 
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("先写一个标题".to_string()),
-            album: None,
-            artist: None,
-            track: None,
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("先写一个标题".to_string()),
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
         assert_eq!(read_title(&path_str).as_deref(), Some("先写一个标题"));
 
         // 再次写回 title=None 应清除
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: None,
-            album: None,
-            artist: None,
-            track: None,
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: None,
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
         assert_eq!(read_title(&path_str), None);
 
@@ -399,27 +501,37 @@ mod tests {
         let conn = mem_conn();
 
         // 文件已带原始标题
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("原始标题".to_string()),
-            album: None,
-            artist: None,
-            track: None,
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("原始标题".to_string()),
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
 
         ensure_snapshot(&conn, &path_str).unwrap();
 
         // 改动文件后再次 ensure，不应覆盖快照里的"原始标题"
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("被改过的标题".to_string()),
-            album: None,
-            artist: None,
-            track: None,
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("被改过的标题".to_string()),
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
         ensure_snapshot(&conn, &path_str).unwrap();
 
@@ -436,27 +548,37 @@ mod tests {
         let (path, path_str) = temp_wav("restore");
         let conn = mem_conn();
 
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("原始标题".to_string()),
-            album: None,
-            artist: None,
-            track: None,
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("原始标题".to_string()),
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
 
         ensure_snapshot(&conn, &path_str).unwrap();
 
         // 模拟用户写回新元数据
-        apply_fields(&WriteInput {
-            path: path_str.clone(),
-            title: Some("AI 清洗后的标题".to_string()),
-            album: Some("反派影评".to_string()),
-            artist: None,
-            track: Some(9),
-            new_name: None,
-        })
+        apply_fields(
+            &WriteInput {
+                path: path_str.clone(),
+                title: Some("AI 清洗后的标题".to_string()),
+                album: Some("反派影评".to_string()),
+                artist: None,
+                track: Some(9),
+                new_name: None,
+                cover_path: None,
+                clear_cover: false,
+            },
+            CoverOp::Keep,
+        )
         .unwrap();
         assert_eq!(read_title(&path_str).as_deref(), Some("AI 清洗后的标题"));
 
@@ -485,5 +607,145 @@ mod tests {
         assert!(load_snapshot(&conn, &path_str).unwrap().is_none());
 
         std::fs::remove_file(&new_path).ok();
+    }
+
+    // 读取首张封面字节，断言写入/还原结果
+    fn read_cover(path: &str) -> Option<Vec<u8>> {
+        let tagged = Probe::open(path).unwrap().read().unwrap();
+        tagged
+            .primary_tag()
+            .or_else(|| tagged.first_tag())
+            .and_then(|t| t.pictures().first().map(|p| p.data().to_vec()))
+    }
+
+    // 最小可识别 PNG：from_reader 仅按前 8 字节签名判定 MIME，故签名 + 填充即可。marker 用于区分不同图片
+    fn png_file(tag: &str, marker: u8) -> (std::path::PathBuf, String) {
+        let mut bytes = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        bytes.extend_from_slice(&[marker; 24]);
+        let path = std::env::temp_dir().join(format!(
+            "tagcast_cover_{}_{}_{:?}.png",
+            tag,
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::write(&path, &bytes).unwrap();
+        let s = path.to_string_lossy().to_string();
+        (path, s)
+    }
+
+    // 从文件嵌入封面后，重新读取应取回相同图片字节
+    #[test]
+    fn writes_cover_to_disk() {
+        let (audio, audio_str) = temp_wav("cover_write");
+        let (img, img_str) = png_file("src", 0x11);
+
+        let input = WriteInput {
+            path: audio_str.clone(),
+            title: None,
+            album: None,
+            artist: None,
+            track: None,
+            new_name: None,
+            cover_path: Some(img_str.clone()),
+            clear_cover: false,
+        };
+        // 经 cover_op_from_input 派生操作，覆盖入参解析分支
+        apply_fields(&input, cover_op_from_input(&input)).unwrap();
+
+        let cover = read_cover(&audio_str).expect("应写入封面");
+        assert_eq!(
+            &cover[0..8],
+            &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
+        );
+
+        std::fs::remove_file(&audio).ok();
+        std::fs::remove_file(&img).ok();
+    }
+
+    // 原本无封面：写封面后重置应清除封面（回到导入前状态）
+    #[test]
+    fn cover_restore_clears_when_originally_none() {
+        let (audio, audio_str) = temp_wav("cover_none");
+        let (img, img_str) = png_file("none", 0x22);
+        let conn = mem_conn();
+
+        ensure_snapshot(&conn, &audio_str).unwrap();
+        apply_fields(
+            &WriteInput {
+                path: audio_str.clone(),
+                title: None,
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: Some(img_str.clone()),
+                clear_cover: false,
+            },
+            CoverOp::FromFile(img_str.clone()),
+        )
+        .unwrap();
+        assert!(read_cover(&audio_str).is_some());
+
+        let snap = load_snapshot(&conn, &audio_str).unwrap().unwrap();
+        assert!(!snap.had_cover);
+        restore_fields(&audio_str, &snap).unwrap();
+        assert!(read_cover(&audio_str).is_none());
+
+        std::fs::remove_file(&audio).ok();
+        std::fs::remove_file(&img).ok();
+    }
+
+    // 原本有封面：写新封面后重置应还原为原封面字节
+    #[test]
+    fn cover_restore_to_original_when_present() {
+        let (audio, audio_str) = temp_wav("cover_present");
+        let (img_a, img_a_str) = png_file("orig", 0x33);
+        let (img_b, img_b_str) = png_file("new", 0x44);
+        let conn = mem_conn();
+
+        // 先嵌入原始封面 A
+        apply_fields(
+            &WriteInput {
+                path: audio_str.clone(),
+                title: None,
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: Some(img_a_str.clone()),
+                clear_cover: false,
+            },
+            CoverOp::FromFile(img_a_str.clone()),
+        )
+        .unwrap();
+        let cover_a = read_cover(&audio_str).unwrap();
+
+        // 快照记录原封面 A，随后写入新封面 B
+        ensure_snapshot(&conn, &audio_str).unwrap();
+        apply_fields(
+            &WriteInput {
+                path: audio_str.clone(),
+                title: None,
+                album: None,
+                artist: None,
+                track: None,
+                new_name: None,
+                cover_path: Some(img_b_str.clone()),
+                clear_cover: false,
+            },
+            CoverOp::FromFile(img_b_str.clone()),
+        )
+        .unwrap();
+        assert_ne!(read_cover(&audio_str).unwrap(), cover_a);
+
+        // 重置应还原回 A
+        let snap = load_snapshot(&conn, &audio_str).unwrap().unwrap();
+        assert!(snap.had_cover);
+        restore_fields(&audio_str, &snap).unwrap();
+        assert_eq!(read_cover(&audio_str).unwrap(), cover_a);
+
+        std::fs::remove_file(&audio).ok();
+        std::fs::remove_file(&img_a).ok();
+        std::fs::remove_file(&img_b).ok();
     }
 }

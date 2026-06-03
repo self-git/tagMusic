@@ -6,6 +6,10 @@ export interface WriteInput {
   artist: string | null;
   track: number | null;
   newName: string | null;
+  /** 要嵌入的封面图片路径；为空表示不设置封面（v2） */
+  coverPath: string | null;
+  /** 显式清除已有封面（v2）；cover_path 优先级更高 */
+  clearCover: boolean;
 }
 
 /** 写回结果：旧路径 → 新路径（未重命名时相同），对应 Rust 端 WriteOutcome */
