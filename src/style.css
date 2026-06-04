@@ -2,8 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 语义颜色 token：浅色为默认值，深色在 prefers-color-scheme 下翻转。
+ * 组件用语义类（bg-base / text-strong / border-line ...）引用，写一次即随系统切换。
+ * 数值为 RGB 通道（空格分隔），配合 tailwind rgb(var(--x) / <alpha-value>) 支持透明度。
+ */
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
+
+  /* 表面层级 */
+  --c-base: 245 245 247; /* 窗口底色 */
+  --c-surface: 255 255 255; /* 卡片 / 面板 */
+  --c-field: 255 255 255; /* 输入框（下沉） */
+  --c-elevated: 232 232 237; /* 徽标 / hover 底 */
+  --c-line: 227 227 232; /* 细分隔线 */
+  --c-edge: 209 209 214; /* 控件边框 */
+
+  /* 文字层级 */
+  --c-strong: 29 29 31; /* 主文字 */
+  --c-muted: 95 95 99; /* 次级文字 */
+  --c-faint: 138 138 142; /* 三级文字 */
+  --c-dim: 176 176 181; /* 四级 / 占位 */
+
+  /* 强调（主操作 / 链接 / 焦点） */
+  --c-accent: 0 122 255; /* 实心按钮底 */
+  --c-accent-hover: 0 99 209;
+  --c-accent-fg: 0 122 255; /* 链接 / 图标文字 */
+
+  /* 状态：信息 / 成功 / 警告 / 危险（bg=底, edge=边, fg=文字, 实心见 success） */
+  --c-info-bg: 239 246 255;
+  --c-info-edge: 191 219 254;
+  --c-info-fg: 29 78 216;
+
+  --c-success: 5 150 105;
+  --c-success-hover: 4 120 87;
+  --c-success-bg: 236 253 245;
+  --c-success-edge: 167 243 208;
+  --c-success-fg: 4 120 87;
+
+  --c-warning-bg: 255 251 235;
+  --c-warning-edge: 253 230 138;
+  --c-warning-fg: 180 83 9;
+
+  --c-danger-bg: 254 242 242;
+  --c-danger-edge: 254 202 202;
+  --c-danger-fg: 185 28 28;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-base: 10 10 10;
+    --c-surface: 23 23 23;
+    --c-field: 10 10 10;
+    --c-elevated: 38 38 38;
+    --c-line: 38 38 38;
+    --c-edge: 64 64 64;
+
+    --c-strong: 245 245 245;
+    --c-muted: 163 163 163;
+    --c-faint: 115 115 115;
+    --c-dim: 82 82 82;
+
+    --c-accent: 2 132 199;
+    --c-accent-hover: 14 165 233;
+    --c-accent-fg: 56 189 248;
+
+    --c-info-bg: 8 47 73;
+    --c-info-edge: 12 74 110;
+    --c-info-fg: 125 211 252;
+
+    --c-success: 5 150 105;
+    --c-success-hover: 16 185 129;
+    --c-success-bg: 2 44 34;
+    --c-success-edge: 6 78 59;
+    --c-success-fg: 110 231 183;
+
+    --c-warning-bg: 69 26 3;
+    --c-warning-edge: 120 53 15;
+    --c-warning-fg: 252 211 77;
+
+    --c-danger-bg: 69 10 10;
+    --c-danger-edge: 127 29 29;
+    --c-danger-fg: 252 165 165;
+  }
 }
 
 html,
@@ -11,4 +92,9 @@ body,
 #app {
   height: 100%;
   margin: 0;
+}
+
+body {
+  background-color: rgb(var(--c-base));
+  color: rgb(var(--c-strong));
 }

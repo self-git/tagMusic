@@ -156,29 +156,29 @@ function confidenceLabel(path: string): string {
   <div class="relative flex h-full flex-col">
     <div
       v-if="isDragging"
-      class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-sky-400 bg-sky-500/10"
+      class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-accent bg-accent/10"
     >
-      <p class="text-lg font-medium text-sky-300">松开以导入音频文件</p>
+      <p class="text-lg font-medium text-accent-fg">松开以导入音频文件</p>
     </div>
 
     <!-- 工具栏 -->
-    <div class="flex flex-wrap items-center gap-2 border-b border-neutral-800 px-4 py-2">
+    <div class="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
       <button
-        class="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+        class="rounded-lg border border-edge px-3 py-1.5 text-sm text-muted hover:bg-elevated disabled:opacity-50"
         :disabled="loading"
         @click="pickFiles"
       >
         添加文件
       </button>
       <button
-        class="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+        class="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
         :disabled="parsing || matching || files.length === 0"
         @click="parseAll"
       >
         {{ parsing ? "AI 解析中…" : matching ? "匹配封面中…" : "AI 解析" }}
       </button>
       <button
-        class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        class="rounded-lg bg-success px-3 py-1.5 text-sm font-medium text-white hover:bg-success-hover disabled:opacity-50"
         :disabled="working || files.length === 0"
         @click="writeAll"
       >
@@ -188,7 +188,7 @@ function confidenceLabel(path: string): string {
       <div class="ml-auto flex items-center gap-2">
         <select
           v-model="fillField"
-          class="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none"
+          class="rounded-lg border border-edge bg-field px-2 py-1.5 text-sm outline-none"
         >
           <option value="title">标题</option>
           <option value="album">节目</option>
@@ -197,31 +197,31 @@ function confidenceLabel(path: string): string {
         <input
           v-model="fillValue"
           placeholder="整列填充值"
-          class="w-40 rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
+          class="w-40 rounded-lg border border-edge bg-field px-2 py-1.5 text-sm outline-none focus:border-accent"
         />
         <button
-          class="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+          class="rounded-lg border border-edge px-3 py-1.5 text-sm text-muted hover:bg-elevated disabled:opacity-50"
           :disabled="files.length === 0"
           @click="applyFill('all')"
         >
           填充全部
         </button>
         <button
-          class="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+          class="rounded-lg border border-edge px-3 py-1.5 text-sm text-muted hover:bg-elevated disabled:opacity-50"
           :disabled="selected.size === 0"
           @click="applyFill('selected')"
         >
           应用所选({{ selected.size }})
         </button>
         <button
-          class="rounded-lg border border-amber-800 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-950/50 disabled:opacity-50"
+          class="rounded-lg border border-warning-edge px-3 py-1.5 text-sm text-warning-fg hover:bg-warning-bg disabled:opacity-50"
           :disabled="working || selected.size === 0"
           @click="resetPaths([...selected])"
         >
           重置所选
         </button>
         <button
-          class="rounded-lg border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+          class="rounded-lg border border-danger-edge px-3 py-1.5 text-sm text-danger-fg hover:bg-danger-bg disabled:opacity-50"
           :disabled="selected.size === 0"
           @click="removeSelected"
         >
@@ -232,49 +232,49 @@ function confidenceLabel(path: string): string {
 
     <div
       v-if="downloadTotal > 0"
-      class="border-b border-sky-900 bg-sky-950/40 px-4 py-1.5 text-sm text-sky-300"
+      class="border-b border-info-edge bg-info-bg px-4 py-1.5 text-sm text-info-fg"
     >
       正在从 iCloud 下载… {{ downloadDone }} / {{ downloadTotal }}
     </div>
     <div
       v-if="pendingDownload.length > 0"
-      class="border-b border-amber-900 bg-amber-950/40 px-4 py-1.5 text-sm text-amber-300"
+      class="border-b border-warning-edge bg-warning-bg px-4 py-1.5 text-sm text-warning-fg"
     >
       {{ pendingDownload.length }} 个文件尚未下载，已跳过。
     </div>
     <p
       v-if="error"
-      class="border-b border-red-900 bg-red-950/40 px-4 py-1.5 text-sm text-red-300"
+      class="border-b border-danger-edge bg-danger-bg px-4 py-1.5 text-sm text-danger-fg"
     >
       解析失败：{{ error }}
     </p>
     <p
       v-if="writeError"
-      class="border-b border-red-900 bg-red-950/40 px-4 py-1.5 text-sm text-red-300"
+      class="border-b border-danger-edge bg-danger-bg px-4 py-1.5 text-sm text-danger-fg"
     >
       写回/重置失败：{{ writeError }}
     </p>
     <p
       v-if="coverError"
-      class="border-b border-amber-900 bg-amber-950/40 px-4 py-1.5 text-sm text-amber-300"
+      class="border-b border-warning-edge bg-warning-bg px-4 py-1.5 text-sm text-warning-fg"
     >
       封面匹配失败（不影响元数据写回）：{{ coverError }}
     </p>
     <p
       v-if="notice"
-      class="border-b border-emerald-900 bg-emerald-950/40 px-4 py-1.5 text-sm text-emerald-300"
+      class="border-b border-success-edge bg-success-bg px-4 py-1.5 text-sm text-success-fg"
     >
       {{ notice }}
     </p>
     <div
       v-if="unmatchedAlbums.length > 0"
-      class="flex flex-wrap items-center gap-2 border-b border-emerald-900 bg-emerald-950/30 px-4 py-1.5 text-sm text-emerald-300"
+      class="flex flex-wrap items-center gap-2 border-b border-success-edge bg-success-bg px-4 py-1.5 text-sm text-success-fg"
     >
       <span>发现 {{ unmatchedAlbums.length }} 个新节目，建立档案后可自动匹配：</span>
       <button
         v-for="name in unmatchedAlbums"
         :key="name"
-        class="rounded-md border border-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-900/50"
+        class="rounded-md border border-success-edge px-2 py-0.5 text-xs hover:bg-success-bg"
         @click="profiles.openLibrary(name)"
       >
         + {{ name }}
@@ -284,10 +284,10 @@ function confidenceLabel(path: string): string {
     <!-- 表格 -->
     <div class="min-h-0 flex-1 overflow-auto">
       <table v-if="files.length > 0" class="w-full border-collapse text-sm">
-        <thead class="sticky top-0 bg-neutral-900 text-left text-xs text-neutral-400">
+        <thead class="sticky top-0 bg-surface text-left text-xs text-muted">
           <tr>
             <th class="w-8 px-2 py-2">
-              <input type="checkbox" :checked="allSelected" class="accent-sky-500" @change="toggleAll" />
+              <input type="checkbox" :checked="allSelected" class="accent-accent" @change="toggleAll" />
             </th>
             <th class="px-2 py-2">原始文件名</th>
             <th class="px-2 py-2">标题</th>
@@ -304,42 +304,42 @@ function confidenceLabel(path: string): string {
           <tr
             v-for="row in table.getRowModel().rows"
             :key="row.original.path"
-            class="border-t border-neutral-800 hover:bg-neutral-900/50"
+            class="border-t border-line hover:bg-surface/50"
           >
             <td class="px-2 py-1">
               <input
                 type="checkbox"
-                class="accent-sky-500"
+                class="accent-accent"
                 :checked="selected.has(row.original.path)"
                 @change="toggle(row.original.path)"
               />
             </td>
-            <td class="max-w-[220px] truncate px-2 py-1 text-neutral-400" :title="row.original.fileName">
+            <td class="max-w-[220px] truncate px-2 py-1 text-muted" :title="row.original.fileName">
               {{ row.original.fileName }}
             </td>
             <td class="px-2 py-1">
               <input
                 v-model="row.original.title"
-                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-neutral-700 focus:border-sky-500 focus:outline-none"
+                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-edge focus:border-accent focus:outline-none"
               />
             </td>
             <td class="px-2 py-1">
               <input
                 v-model="row.original.album"
-                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-neutral-700 focus:border-sky-500 focus:outline-none"
+                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-edge focus:border-accent focus:outline-none"
               />
             </td>
             <td class="px-2 py-1">
               <input
                 v-model="row.original.artist"
-                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-neutral-700 focus:border-sky-500 focus:outline-none"
+                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-edge focus:border-accent focus:outline-none"
               />
             </td>
             <td class="px-2 py-1">
               <input
                 v-model.number="row.original.track"
                 type="number"
-                class="w-14 rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-neutral-700 focus:border-sky-500 focus:outline-none"
+                class="w-14 rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-edge focus:border-accent focus:outline-none"
               />
             </td>
             <td class="px-2 py-1">
@@ -351,9 +351,9 @@ function confidenceLabel(path: string): string {
                   :title="`封面匹配 ${coverConfidence(row.original.path)}（单击查看大图）`"
                   @click="previewImage = coverThumb(row.original)"
                 />
-                <span v-else class="text-xs text-neutral-600">无</span>
+                <span v-else class="text-xs text-dim">无</span>
                 <button
-                  class="text-xs text-sky-400 hover:underline"
+                  class="text-xs text-accent-fg hover:underline"
                   title="手动选择封面图片"
                   @click="pickCover(row.original.path)"
                 >
@@ -361,7 +361,7 @@ function confidenceLabel(path: string): string {
                 </button>
                 <button
                   v-if="coverThumb(row.original)"
-                  class="text-xs text-neutral-500 hover:text-red-400"
+                  class="text-xs text-faint hover:text-danger-fg"
                   title="清除封面（写回时移除）"
                   @click="store.clearCover(row.original.path)"
                 >
@@ -369,12 +369,12 @@ function confidenceLabel(path: string): string {
                 </button>
               </div>
             </td>
-            <td class="px-2 py-1 text-xs text-neutral-500">
+            <td class="px-2 py-1 text-xs text-faint">
               {{ confidenceLabel(row.original.path) }}
             </td>
             <td
               v-if="renameEnabled"
-              class="max-w-[260px] truncate px-2 py-1 text-xs text-emerald-400"
+              class="max-w-[260px] truncate px-2 py-1 text-xs text-success-fg"
               :title="preview(row.original) ?? ''"
             >
               {{ preview(row.original) ?? "—" }}
@@ -382,7 +382,7 @@ function confidenceLabel(path: string): string {
             <td class="whitespace-nowrap px-2 py-1 text-center">
               <button
                 v-if="store.isWritten(row.original.path)"
-                class="mr-2 text-xs text-amber-400 hover:underline disabled:opacity-50"
+                class="mr-2 text-xs text-warning-fg hover:underline disabled:opacity-50"
                 :disabled="working"
                 title="恢复原文件名与原标签"
                 @click="resetPaths([row.original.path])"
@@ -390,7 +390,7 @@ function confidenceLabel(path: string): string {
                 重置
               </button>
               <button
-                class="text-neutral-600 hover:text-red-400"
+                class="text-dim hover:text-danger-fg"
                 title="从工作区移除"
                 @click="removeByPaths([row.original.path])"
               >
@@ -401,7 +401,7 @@ function confidenceLabel(path: string): string {
         </tbody>
       </table>
 
-      <div v-else class="p-10 text-center text-neutral-500">
+      <div v-else class="p-10 text-center text-faint">
         还没有文件，点击「添加文件」或直接拖入音频文件。
       </div>
     </div>
