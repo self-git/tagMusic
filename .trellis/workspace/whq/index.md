@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 3
-- **Last Active**: 2026-06-03
+- **Total Sessions**: 4
+- **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~155 | Active |
+| `journal-1.md` | ~188 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 4 | 2026-06-04 | 设置面板 Apple 风格重构 + 全局浅/深色主题 | `e0aa4cd` | `main` |
 | 3 | 2026-06-03 | 封面内嵌读取与重置同步 + 文件名规则引擎 | `f32ef4a` | `main` |
 | 2 | 2026-06-03 | TagCast v2: 封面 AI 自动导入 + 解析提示词自定义 | `6463df6` | `main` |
 | 1 | 2026-06-03 | PR6 测试 + DMG 打包 + README + DMG 排障 | `1c7bf11`, `60eff3f` | `main` |

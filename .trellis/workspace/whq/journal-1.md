@@ -153,3 +153,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: 设置面板 Apple 风格重构 + 全局浅/深色主题
+
+**Date**: 2026-06-04
+**Task**: 设置面板 Apple 风格重构 + 全局浅/深色主题
+**Branch**: `main`
+
+### Summary
+
+把 480px 单列设置弹窗重构为 macOS 系统设置式近全屏 master-detail（左侧 4 类导航：AI 服务/AI 解析/重命名/匹配规则，lucide 图标+Apple 圆角色块，右侧内容区，X/Esc/遮罩关闭）。建立语义颜色 token 体系：style.css 用 CSS 变量定义浅色默认值 + @media(prefers-color-scheme:dark) 整组翻转，tailwind.config.js 注册为颜色(rgb(var(--x)/<alpha-value>))；全应用(App/TableBatch/SingleFileWizard/ProfileLibraryModal/SettingsModal/RuleEditor)约 248 处硬编码 neutral-*/sky-*/状态色迁移到语义 token，随系统外观自动切换。RuleEditor 在宽容器下把原本拥挤换行的分段映射/固定值重排为带标签的 4 列网格，控件统一 Apple 风格，脚本逻辑零改动。新增 lucide-vue-next。验证：npm run build(vue-tsc+vite) 通过、vitest 10/10、产物 CSS 含全部语义类与深色翻转块、无 lint 错误。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e0aa4cd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
