@@ -219,3 +219,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: 更新 README 示例与协议
+
+**Date**: 2026-06-05
+**Task**: 更新 README 示例与协议
+**Branch**: `main`
+
+### Summary
+
+更新示例文件名为马后炮第151期，移除已知限制(v1)章节，License改为MIT协议
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a794126` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
