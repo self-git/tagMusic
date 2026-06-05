@@ -4390,3 +4390,108 @@ _**Agent (claude-opus-4-8)**_
 <summary>Tool use: **edit_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+Now check current dirty state and commit all.
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: git status --porcelain</summary>
+
+```bash
+git status --porcelain
+```
+
+```
+ M .specstory/history/2026-06-02_07-36-19Z-pr4-progress-with-deepseek.md
+ M .specstory/statistics.json
+ M .trellis/tasks/06-01-ai-music-tag-design/prd.md
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ I'm looking at three files that need committing: the prd.md with my edits and PR5 status notes, plus two .specstory auto-history files. The user wants everything committed with proper messages. Since these are different concerns—documentation updates versus session history—I'm deciding between one combined commit or splitting them logically. I'll go with two commits to keep the concerns separate: one for the prd changes and another for the specstory files.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+三个文件：`prd.md`（我的 PR5 状态 + 排障记录）和两个 `.specstory` 自动会话历史。按你的要求全部提交，分两个语义提交。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: git add .trellis/tasks/06-01-ai-music-tag-design/prd.md && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
+
+- §12 标注 PR5 元数据写回/快照/重置真机验证通过
+- §12.1 记录"改动在 Finder/Music 不可见"的根因（lofty 默认写 ID3v2.4，macOS 仅支持到 v2.3）与修复（use_id3v23）
+EOF
+)" && git add .specstory && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+chore(specstory): 同步会话历史与统计
+EOF
+)" && echo "---" && git status --porcelain && echo "---LOG---" && git log --oneline -4</summary>
+
+```bash
+git add .trellis/tasks/06-01-ai-music-tag-design/prd.md && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
+
+- §12 标注 PR5 元数据写回/快照/重置真机验证通过
+- §12.1 记录"改动在 Finder/Music 不可见"的根因（lofty 默认写 ID3v2.4，macOS 仅支持到 v2.3）与修复（use_id3v23）
+EOF
+)" && git add .specstory && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+chore(specstory): 同步会话历史与统计
+EOF
+)" && echo "---" && git status --porcelain && echo "---LOG---" && git log --oneline -4
+```
+
+```
+[main f5482a4] docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
+ 1 file changed, 7 insertions(+)
+[main 8b5de74] chore(specstory): 同步会话历史与统计
+ 2 files changed, 4142 insertions(+), 5 deletions(-)
+---
+---LOG---
+8b5de74 chore(specstory): 同步会话历史与统计
+f5482a4 docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
+96f5832 feat: PR5 元数据写回 + 原快照 + 一键重置 + 窗口尺寸
+9fb26a6 fix: 修复继续添加文件表格不刷新 + 新增移出工作区按钮
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+全部提交完成，工作区已干净。
+
+## 本次新增提交
+
+| commit | 说明 |
+|---|---|
+| `f5482a4` | **docs(prd)**：PRD §12 标注 PR5 写回真机验证通过；§12.1 把原"未完成"记录改为**排障记录**（根因 lofty 默认 ID3v2.4、macOS 仅支持 v2.3；修复 `use_id3v23`） |
+| `8b5de74` | **chore(specstory)**：同步会话历史与统计 |
+
+## PR5 完整提交线（含本会话）
+
+- `96f5832` feat: PR5 元数据写回 + 原快照 + 一键重置 + 窗口尺寸
+- `f5482a4` docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
+- `8b5de74` chore(specstory): 同步会话历史
+
+PRD 那条记录我改成了"已解决/排障记录"而非保留为"未完成"，因为你确认现在能用了——这样文档与实际一致。`git status` 现已无未提交改动。
+
+至此 PR1–PR5 全部落地：脚手架、iCloud、LLM 解析、节目档案库/重命名、元数据写回/重置都已实现并提交。接下来按 PRD 计划是 **PR6（单元/集成测试 + DMG 打包 + README + 发布准备）**，需要的话告诉我继续。

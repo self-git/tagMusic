@@ -4469,3 +4469,426 @@ _**Agent (claude-opus-4-8)**_
 _**Agent (claude-opus-4-8)**_
 
 Now add the lightbox overlay at the end of the template.
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/wwdd/Documents/code/music-tag-AI/src/views/TableBatch.vue</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: npm run type-check 2>&1 | tail -8</summary>
+
+```bash
+npm run type-check 2>&1 | tail -8
+```
+
+```
+
+&gt; tagcast@0.1.0 type-check
+&gt; vue-tsc --noEmit
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "src/views/TableBatch.vue"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "src/views/TableBatch.vue"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ The lightbox is complete and type-checking passes, so I'm moving into the finish-work phase. I need to follow the trellis-finish-work skill, which means verifying the quality gate, reminding the user to commit their changes, archiving the completed tasks, and recording progress to the developer journal. Let me pull up that skill to make sure I'm following the right steps.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+封面大图预览已加好，type-check 通过、无 linter 错误。现在执行 finish-work 流程，先读取该 skill。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/wwdd/Documents/code/music-tag-AI/.agents/skills/trellis-finish-work/SKILL.md</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ I'm realizing the workflow needs to follow a specific sequence: the user wants me to commit their code changes first through Phase 3.4, which requires getting their confirmation on the commit plan, and only then proceed with finish-work to archive everything.
+
+Let me start by gathering the current state—I'll check the repository context, status, and recent commits to understand what needs to be committed.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+封面预览完成。进入 finish-work：先勘察状态、按 Phase 3.4 整理提交计划。先看当前 git 状态、最近提交与记录上下文。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: git status --porcelain 2>&1; echo "===LOG==="; git log --oneline -5</summary>
+
+```bash
+git status --porcelain 2>&1; echo "===LOG==="; git log --oneline -5
+```
+
+```
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+ M src-tauri/src/db.rs
+ M src-tauri/src/lib.rs
+ M src-tauri/src/llm.rs
+ M src-tauri/src/write.rs
+ M src/components/SettingsModal.vue
+ M src/composables/useLlmParse.ts
+ M src/composables/useWriteback.ts
+ M src/store/audio.ts
+ M src/store/settings.ts
+ M src/types/llm.ts
+ M src/types/write.ts
+ M src/views/TableBatch.vue
+?? .specstory/history/2026-06-03_01-26-22Z-v2-implementation-requirement-documentation.md
+?? .trellis/tasks/06-03-tagcast-v2/
+?? src-tauri/src/cover.rs
+?? src/composables/useCover.ts
+?? src/types/cover.ts
+===LOG===
+a6531eb chore: record journal
+be2d4a3 chore(task): archive 06-01-ai-music-tag-design
+9032200 chore(specstory): 同步会话历史与统计
+60eff3f docs(prd): 记录 PR6 完成 + DMG 排障 + v2 AI 解析配置 backlog
+1c7bf11 feat: PR6 测试 + DMG 打包脚本 + README
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ Looking at the recent commit patterns with their mix of conventional prefixes and bilingual messages, I'm planning how to organize these changes. The modifications span both the Rust backend and Vue/TypeScript frontend across database, LLM, writing, and cover functionality, so I'll consolidate them into a single coherent commit.
+
+I need to separate the actual code changes from the auto-generated files—the .specstory session history and statistics are typically handled through their own sync commits, and the task directory itself will be archived automatically, so my work commit should focus only on the source code files I've modified.
+
+Now I'm deciding how to present this plan to the user. I'll lay out the commit structure clearly and then use a confirmation prompt to get their approval before proceeding, following the one-shot confirmation protocol.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+质量门禁已全绿。按 Phase 3.4，先提交代码再归档。这是我的提交计划：
+
+**提交（feat，单个内聚提交）** — 本次 v2 全部代码改动：
+- 后端：`src-tauri/src/cover.rs`(新)、`db.rs`、`lib.rs`、`llm.rs`、`write.rs`
+- 前端：`src/components/SettingsModal.vue`、`src/composables/{useCover.ts(新),useLlmParse.ts,useWriteback.ts}`、`src/store/{audio.ts,settings.ts}`、`src/types/{cover.ts(新),llm.ts,write.ts}`、`src/views/TableBatch.vue`
+
+提交信息（拟）：
+```
+feat: v2 封面 AI 自动导入 + 解析提示词自定义
+
+- 封面：同目录候选扫描 + LLM 文本匹配 + 审核预览/选图/清除/大图预览，随写回落盘并纳入快照可重置
+- 提示词：system/few-shot/temperature 可自定义，留空回落默认
+- 修复 lofty 0.22 ID3v2.3 空描述 APIC 不可读
+```
+
+**不纳入此提交**：
+- `.specstory/history/*.md`、`.specstory/statistics.json` —— SpecStory 自动会话历史（一般单独同步）
+- `.trellis/tasks/06-03-tagcast-v2/` —— 由后续 `task.py archive` 自动提交
+
+确认后我会执行提交，再归档任务 + 记录会话日志。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question">
+<details>
+<summary>Tool use: **ask_question**</summary>
+
+
+Parameters:
+
+```json
+{
+  "questions": [
+    {
+      "id": "commit_confirm",
+      "options": [
+        {
+          "id": "ok",
+          "label": "行，按计划提交并 finish-work"
+        },
+        {
+          "id": "edit_msg",
+          "label": "文件分组 OK，但我要改提交信息"
+        },
+        {
+          "id": "manual",
+          "label": "我自己来（不要自动提交）"
+        }
+      ],
+      "prompt": "是否按上述计划执行提交 + finish-work？"
+    }
+  ]
+}
+```
+Additional data:
+
+```json
+{
+  "currentSelections": {
+    "commit_confirm": [
+      "ok"
+    ]
+  },
+  "freeformTexts": {
+    "commit_confirm": ""
+  },
+  "status": "submitted"
+}
+```
+Result:
+
+```json
+{
+  "answers": [
+    {
+      "freeformText": "",
+      "questionId": "commit_confirm",
+      "selectedOptionIds": [
+        "ok"
+      ]
+    }
+  ]
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question"><details>
+<summary>Tool use: **ask_question**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+User confirmed. Executing the work commit (code files only).
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: git add src-tauri/src/cover.rs src-tauri/src/db.rs src-tauri/src/lib.rs src-tauri/src/llm.rs src-tauri/src/write.rs src/components/SettingsModal.vue src/composables/useCover.ts src/composables/useLlmParse.ts src/composables/useWriteback.ts src/store/audio.ts src/store/settings.ts src/types/cover.ts src/types/llm.ts src/types/write.ts src/views/TableBatch.vue && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+feat: v2 封面 AI 自动导入 + 解析提示词自定义
+
+- 封面：同目录候选扫描 + LLM 文本匹配 + 审核预览/选图/清除/大图预览，随写回落盘并纳入快照可重置
+- 提示词：system/few-shot/temperature 可自定义，留空回落默认
+- 修复 lofty 0.22 ID3v2.3 空描述 APIC 不可读
+EOF
+)" && echo "===STATUS===" && git status --porcelain</summary>
+
+```bash
+git add src-tauri/src/cover.rs src-tauri/src/db.rs src-tauri/src/lib.rs src-tauri/src/llm.rs src-tauri/src/write.rs src/components/SettingsModal.vue src/composables/useCover.ts src/composables/useLlmParse.ts src/composables/useWriteback.ts src/store/audio.ts src/store/settings.ts src/types/cover.ts src/types/llm.ts src/types/write.ts src/views/TableBatch.vue && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+feat: v2 封面 AI 自动导入 + 解析提示词自定义
+
+- 封面：同目录候选扫描 + LLM 文本匹配 + 审核预览/选图/清除/大图预览，随写回落盘并纳入快照可重置
+- 提示词：system/few-shot/temperature 可自定义，留空回落默认
+- 修复 lofty 0.22 ID3v2.3 空描述 APIC 不可读
+EOF
+)" && echo "===STATUS===" && git status --porcelain
+```
+
+```
+[main 6463df6] feat: v2 封面 AI 自动导入 + 解析提示词自定义
+ 15 files changed, 1212 insertions(+), 115 deletions(-)
+ create mode 100644 src-tauri/src/cover.rs
+ create mode 100644 src/composables/useCover.ts
+ create mode 100644 src/types/cover.ts
+===STATUS===
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+?? .specstory/history/2026-06-03_01-26-22Z-v2-implementation-requirement-documentation.md
+?? .trellis/tasks/06-03-tagcast-v2/
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ The work commit is done, so now I need to archive the task and then record the journal entry with that commit hash.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+Work commit done (`6463df6`). Now archiving the task (finish-work Step 3) and recording the session journal (Step 4).
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: python3 ./.trellis/scripts/task.py archive 06-03-tagcast-v2 2>&1</summary>
+
+```bash
+python3 ./.trellis/scripts/task.py archive 06-03-tagcast-v2 2>&1
+```
+
+```
+[0;32mArchived: 06-03-tagcast-v2 -&gt; archive/2026-06/[0m
+[OK] Auto-committed: chore(task): archive 06-03-tagcast-v2
+.trellis/tasks/archive/2026-06/06-03-tagcast-v2
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: python3 ./.trellis/scripts/add_session.py --title "TagCast v2: 封面 AI 自动导入 + 解析提示词自定义" --commit "6463df6" --summary "实现 v2 两项能力。封面：cover.rs 同目录候选扫描 + read_image_data_url 缩略图，llm.rs match_covers 纯文本匹配(阈值0.5)，write.rs CoverOp + WriteInput.coverPath/clearCover，db.rs 快照扩列(had_cover/orig_cover/orig_cover_mime,含旧库幂等ALTER迁移)可重置还原，前端 useCover + store.coverByPath + TableBatch 封面列(缩略图/选图/清除/单击大图预览)。提示词：llm.rs ParseConfig 参数化(system/few-shot/temperature,留空回落默认,自定义失败追加恢复默认提示)，前端 settings.parseConfig 持久化 + SettingsModal 三字段编辑/恢复默认。关键修复:lofty 0.22 ID3v2.3 对 None 描述只写单字节0x00导致UTF-16回读BOM报错,补 Some(\"\") 修复;webp 不支持故收窄jpg/jpeg/png。验证 cargo test(25)/clippy/fmt + npm type-check/test(10) 全绿。" 2>&1</summary>
+
+```bash
+python3 ./.trellis/scripts/add_session.py --title "TagCast v2: 封面 AI 自动导入 + 解析提示词自定义" --commit "6463df6" --summary "实现 v2 两项能力。封面：cover.rs 同目录候选扫描 + read_image_data_url 缩略图，llm.rs match_covers 纯文本匹配(阈值0.5)，write.rs CoverOp + WriteInput.coverPath/clearCover，db.rs 快照扩列(had_cover/orig_cover/orig_cover_mime,含旧库幂等ALTER迁移)可重置还原，前端 useCover + store.coverByPath + TableBatch 封面列(缩略图/选图/清除/单击大图预览)。提示词：llm.rs ParseConfig 参数化(system/few-shot/temperature,留空回落默认,自定义失败追加恢复默认提示)，前端 settings.parseConfig 持久化 + SettingsModal 三字段编辑/恢复默认。关键修复:lofty 0.22 ID3v2.3 对 None 描述只写单字节0x00导致UTF-16回读BOM报错,补 Some(\"\") 修复;webp 不支持故收窄jpg/jpeg/png。验证 cargo test(25)/clippy/fmt + npm type-check/test(10) 全绿。" 2>&1
+```
+
+```
+========================================
+ADD SESSION
+========================================
+
+Session: 2
+Title: TagCast v2: 封面 AI 自动导入 + 解析提示词自定义
+Commit: 6463df6
+
+Current journal file: journal-1.md
+Current lines: 89
+New content lines: 33
+Total after append: 122
+
+[OK] Appended session to journal-1.md
+
+
+========================================
+[OK] Session 2 added successfully!
+========================================
+
+Files updated:
+  - journal-1.md
+  - index.md
+
+[OK] Auto-committed: chore: record journal
+Updating index.md for session 2...
+  Title: TagCast v2: 封面 AI 自动导入 + 解析提示词自定义
+  Commit: &#96;6463df6&#96;
+  Active File: journal-1.md
+
+[OK] Updated index.md successfully!
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ Checking the git log to make sure everything's in the right order.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+finish-work 完成。最终 git 提交顺序符合规范：
+
+```
+chore: record journal          ← 会话日志
+chore(task): archive 06-03-tagcast-v2  ← 任务归档
+feat: v2 封面 AI 自动导入 + 解析提示词自定义  ← 代码（6463df6）
+```
+
+## 本次补充
+- 在 `TableBatch.vue` 封面列为缩略图加了**单击放大预览**：缩略图 `cursor-zoom-in`，点击弹出全屏灯箱（`max-h/max-w` 自适应、`object-contain`），点击遮罩关闭。type-check 通过、无 linter 错误。
+
+## 会话收尾（finish-work）
+- 代码提交 `6463df6`（15 文件，feat）
+- 任务已归档至 `.trellis/tasks/archive/2026-06/06-03-tagcast-v2`
+- 会话日志已记录（Session 2，关联 `6463df6`）
+
+## 说明
+工作区仍有两类未提交文件，按规则**未纳入**本次提交：
+- `.specstory/history/*.md`、`.specstory/statistics.json` —— SpecStory 自动会话历史，通常单独同步，留给你处理。
+
+v2 两项能力（封面 AI 自动导入 + 解析提示词自定义）已全部实现、验证全绿并归档完成。

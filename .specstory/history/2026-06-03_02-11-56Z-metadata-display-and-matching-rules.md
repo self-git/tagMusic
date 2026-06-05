@@ -3744,4 +3744,562 @@ _**User**_
 _**Agent (claude-opus-4-8)**_
 
 <think><details><summary>Thought Process</summary>
- The user is reporting that drag-to-reorder for rules isn't working. I'm looking at the RuleEditor implementation and noticing the drag handle uses `draggable="true"` with a dragstart handler, while the card listens for dragover and drop events. I suspect this is a common HTML5 drag-and-drop issue where the drop target isn't properly configured.</details></think>
+ The user is reporting that drag-to-reorder for rules isn't working. I'm looking at the RuleEditor implementation and noticing the drag handle uses `draggable="true"` with a dragstart handler, while the card listens for dragover and drop events. I suspect this is a common HTML5 drag-and-drop issue where the drop target isn't properly configured.
+
+Actually, I think I've found it — the problem might be that users are trying to drag the card body itself rather than the small handle, since only the span is marked as draggable. The user's comment about not being able to change priority via drag suggests they're attempting to drag the wrong element.
+
+But there's also a real technical issue: on WebKit (like macOS Tauri), HTML5 drag-and-drop won't work without calling `dataTransfer.setData()` in the dragstart handler. Chrome and Firefox are more forgiving, but WebKit requires it. So the fix is to properly set up the dragstart handler to call `setData()` and set the `effectAllowed`, then configure `dropEffect` in dragover. That should make the drag-and-drop work reliably across all platforms.
+
+Now I need to look at the actual RuleEditor.vue code to see where the dragstart handler is and update it to properly handle the dataTransfer.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+先看一下当前拖拽实现，精确定位问题。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ I found the root cause—the drag handle is set to draggable but the `dragstart` handler only captures the index without calling `dataTransfer.setData()`, which WebKit on macOS requires for the drop event to fire. The card itself has the drop handlers, but only the small handle element is actually draggable, which is the intended design.
+
+I'm creating a proper `onDragStart` function that sets both the `dragIndex` and the required `dataTransfer` data with `effectAllowed = 'move'`, then updating the template to call this handler instead of the inline assignment. I'll also add a `dragend` handler to clear the index when the drag completes.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+找到根因了：拖拽手柄的 `@dragstart="dragIndex = i"` 没有设置 `event.dataTransfer`。在 macOS 的 WKWebView（Tauri 用的 WebKit）里，HTML5 拖拽如果不在 `dragstart` 调用 `dataTransfer.setData()`，拖拽不会真正发起、`drop` 也不会触发——这就是拖不动的原因。
+
+修复：加一个真正的 `onDragStart` 设置 `dataTransfer`。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+Verify lint + type-check.
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/wwdd/Documents/code/music-tag-AI/src/components/RuleEditor.vue"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && npm run type-check 2>&1 | tail -10</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && npm run type-check 2>&1 | tail -10
+```
+
+```
+
+&gt; tagcast@0.1.0 type-check
+&gt; vue-tsc --noEmit
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ The user wants me to finish the task after fixing the bug, but according to the workflow, I need to commit the code changes in Phase 3.4 before running the finish-work command. However, the user's instruction in Chinese suggests they want the task completed immediately after the fix is done. I'm weighing whether to follow the strict workflow order or interpret the user's intent as wanting everything wrapped up now.
+
+The key tension is that finish-work itself requires code to be committed first, and Phase 3.4 has a specific process: gather git status and diff, present a commit plan, get one-shot confirmation, then commit. The user didn't explicitly say "commit," but invoking finish-work implies they want the code committed. I should follow the proper Phase 3.4 flow—check the current git state, present the commit plan for confirmation, then proceed to finish-work steps. I'll also briefly assess whether the specs need updating, though the user seems to want to wrap up quickly.
+
+Now I'm running the git survey commands to see what's staged, what's changed, and the recent commit history.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+拖拽问题已修复（`vue-tsc` 通过）。现在按流程收尾：先 Phase 3.4 提交代码，再 finish-work 归档+记录。先看仓库状态。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && git status --porcelain && echo "=== LOG ===" && git log --oneline -5</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && git status --porcelain && echo "=== LOG ===" && git log --oneline -5
+```
+
+```
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+ M src-tauri/Cargo.lock
+ M src-tauri/Cargo.toml
+ M src-tauri/src/audio.rs
+ M src-tauri/src/cover.rs
+ M src-tauri/src/lib.rs
+ M src-tauri/src/llm.rs
+ M src/components/SettingsModal.vue
+ M src/composables/useLlmParse.ts
+ M src/composables/useRename.test.ts
+ M src/store/audio.ts
+ M src/store/profiles.test.ts
+ M src/store/settings.ts
+ M src/types/audio.ts
+ M src/views/TableBatch.vue
+?? .specstory/history/2026-06-03_01-26-22Z-v2-implementation-requirement-documentation.md
+?? .specstory/history/2026-06-03_02-11-56Z-metadata-display-and-matching-rules.md
+?? .trellis/tasks/06-03-cover-reset-and-rules/
+?? src/components/RuleEditor.vue
+?? src/composables/useRules.ts
+?? src/types/rule.ts
+=== LOG ===
+2c1b1f0 chore: record journal
+a5801e4 chore(task): archive 06-03-tagcast-v2
+6463df6 feat: v2 封面 AI 自动导入 + 解析提示词自定义
+a6531eb chore: record journal
+be2d4a3 chore(task): archive 06-01-ai-music-tag-design
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/get_context.py --mode record 2>&1 | tail -40</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/get_context.py --mode record 2>&1 | tail -40
+```
+
+```
+========================================
+SESSION CONTEXT (RECORD MODE)
+========================================
+
+## [!!!] MY ACTIVE TASKS (Assigned to whq)
+[!] Review whether any should be archived before recording this session.
+
+- [P2] 封面重置同步与文件名规则引擎 (in_progress) — 06-03-cover-reset-and-rules
+
+## GIT STATUS
+Branch: main
+Working directory: 22 uncommitted change(s)
+
+Changes:
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+ M src-tauri/Cargo.lock
+ M src-tauri/Cargo.toml
+ M src-tauri/src/audio.rs
+ M src-tauri/src/cover.rs
+ M src-tauri/src/lib.rs
+ M src-tauri/src/llm.rs
+ M src/components/SettingsModal.vue
+ M src/composables/useLlmParse.ts
+
+## RECENT COMMITS
+2c1b1f0 chore: record journal
+a5801e4 chore(task): archive 06-03-tagcast-v2
+6463df6 feat: v2 封面 AI 自动导入 + 解析提示词自定义
+a6531eb chore: record journal
+be2d4a3 chore(task): archive 06-01-ai-music-tag-design
+
+## CURRENT TASK
+Path: .trellis/tasks/06-03-cover-reset-and-rules
+Source: session-fallback:cursor_9605d75f-019d-49b7-9348-70eb5233ef70
+Name: cover-reset-and-rules
+Status: in_progress
+
+========================================
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ Now I'm categorizing the files I've modified during this session—the Rust backend files for audio, cover art, and LLM functionality, the Vue components for settings and rule editing, and the new TypeScript composables for parsing and rule management.
+
+The rest are auto-generated or task metadata that should stay out of the code commit. For the actual commit, I'm grouping everything as one coherent feature covering both the embedded cover reading and the filename rule engine, using the style of recent commits: `feat: 封面内嵌读取与重置同步 + 文件名规则引擎`. The files to include are the Rust dependencies, backend modules, Vue components, and composables—all the code changes from this session.
+
+Now I need to present this plan to the user and ask for confirmation before proceeding with the commit, archive, and journal entries.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+Phase 3.4：把本次任务的代码改动整理成一个提交。分类如下，请一次性确认。
+
+**拟提交（feat，本任务代码）：**
+- 后端：`src-tauri/Cargo.toml`、`Cargo.lock`、`src/audio.rs`、`src/cover.rs`、`src/lib.rs`、`src/llm.rs`
+- 前端：`src/components/RuleEditor.vue`(新)、`SettingsModal.vue`、`src/composables/useRules.ts`(新)、`useLlmParse.ts`、`src/store/audio.ts`、`settings.ts`、`src/types/rule.ts`(新)、`audio.ts`、`src/views/TableBatch.vue`
+- 测试夹具：`src/composables/useRename.test.ts`、`src/store/profiles.test.ts`
+
+提交信息（沿用仓库风格）：
+`feat: 封面内嵌读取与重置同步 + 文件名规则引擎（本地优先+AI兜底+固定值）`
+
+**不纳入提交（留给后续/自动管理）：**
+- `.specstory/history/*.md`、`.specstory/statistics.json` —— SpecStory 自动生成的对话记录，非本任务代码
+- `.trellis/tasks/06-03-cover-reset-and-rules/` —— 任务目录，由随后的 archive 自动提交
+
+确认后我执行：提交代码 → 归档任务 → 记录会话日志。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question">
+<details>
+<summary>Tool use: **ask_question**</summary>
+
+
+Parameters:
+
+```json
+{
+  "questions": [
+    {
+      "id": "commit",
+      "options": [
+        {
+          "id": "ok",
+          "label": "行，按计划提交 + 归档 + 记录日志"
+        },
+        {
+          "id": "msg",
+          "label": "分组可以，但提交信息我要改"
+        },
+        {
+          "id": "manual",
+          "label": "我自己来提交"
+        }
+      ],
+      "prompt": "是否按上述计划提交代码，并继续完成 finish-work（归档+记录日志）？"
+    }
+  ]
+}
+```
+Additional data:
+
+```json
+{
+  "currentSelections": {
+    "commit": [
+      "ok"
+    ]
+  },
+  "freeformTexts": {
+    "commit": ""
+  },
+  "status": "submitted"
+}
+```
+Result:
+
+```json
+{
+  "answers": [
+    {
+      "freeformText": "",
+      "questionId": "commit",
+      "selectedOptionIds": [
+        "ok"
+      ]
+    }
+  ]
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question"><details>
+<summary>Tool use: **ask_question**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+Confirmed. Committing the code (excluding `.specstory` and task dir):
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src/audio.rs src-tauri/src/cover.rs src-tauri/src/lib.rs src-tauri/src/llm.rs src/components/RuleEditor.vue src/components/SettingsModal.vue src/composables/useRules.ts src/composables/useLlmParse.ts src/composables/useRename.test.ts src/store/audio.ts src/store/settings.ts src/store/profiles.test.ts src/types/rule.ts src/types/audio.ts src/views/TableBatch.vue && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+feat: 封面内嵌读取与重置同步 + 文件名规则引擎（本地优先+AI兜底+固定值）
+
+- 封面：导入读取内嵌封面缩略图作基准，AI/手动为叠加层；重置清叠加回落显示真实封面
+- 规则引擎：分隔/正则两类规则，优先级可调，本地字段级叠加优先、空缺走 AI 并注入规则提示
+- 规则支持固定值（常量赋值）解决归类需求；AI 可由自然语言生成规则与固定值
+EOF
+)" && echo "=== STATUS ===" && git status --porcelain | head</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src/audio.rs src-tauri/src/cover.rs src-tauri/src/lib.rs src-tauri/src/llm.rs src/components/RuleEditor.vue src/components/SettingsModal.vue src/composables/useRules.ts src/composables/useLlmParse.ts src/composables/useRename.test.ts src/store/audio.ts src/store/settings.ts src/store/profiles.test.ts src/types/rule.ts src/types/audio.ts src/views/TableBatch.vue && git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "$(cat <<'EOF'
+feat: 封面内嵌读取与重置同步 + 文件名规则引擎（本地优先+AI兜底+固定值）
+
+- 封面：导入读取内嵌封面缩略图作基准，AI/手动为叠加层；重置清叠加回落显示真实封面
+- 规则引擎：分隔/正则两类规则，优先级可调，本地字段级叠加优先、空缺走 AI 并注入规则提示
+- 规则支持固定值（常量赋值）解决归类需求；AI 可由自然语言生成规则与固定值
+EOF
+)" && echo "=== STATUS ===" && git status --porcelain | head
+```
+
+```
+[main f32ef4a] feat: 封面内嵌读取与重置同步 + 文件名规则引擎（本地优先+AI兜底+固定值）
+ 17 files changed, 789 insertions(+), 18 deletions(-)
+ create mode 100644 src/components/RuleEditor.vue
+ create mode 100644 src/composables/useRules.ts
+ create mode 100644 src/types/rule.ts
+=== STATUS ===
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+?? .specstory/history/2026-06-03_01-26-22Z-v2-implementation-requirement-documentation.md
+?? .specstory/history/2026-06-03_02-11-56Z-metadata-display-and-matching-rules.md
+?? .trellis/tasks/06-03-cover-reset-and-rules/
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ I've committed the changes with hash f32ef4a, leaving the auto-generated files untouched. Now I need to archive the task directory and then record this commit hash in the journal.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+代码已提交（`f32ef4a`）。剩余脏文件是 SpecStory 自动记录（非本任务，留着）和任务目录（即将归档）。现在归档任务。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/task.py archive 06-03-cover-reset-and-rules 2>&1 | tail -15</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/task.py archive 06-03-cover-reset-and-rules 2>&1 | tail -15
+```
+
+```
+[0;32mArchived: 06-03-cover-reset-and-rules -&gt; archive/2026-06/[0m
+[OK] Auto-committed: chore(task): archive 06-03-cover-reset-and-rules
+.trellis/tasks/archive/2026-06/06-03-cover-reset-and-rules
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+Now record the session journal with the work-commit hash:
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/add_session.py --title "封面内嵌读取与重置同步 + 文件名规则引擎" --commit "f32ef4a" --summary "修复重置后封面不同步并新增导入读取内嵌封面缩略图（image crate）；新增文件名规则引擎：分隔/正则两类规则、优先级可拖拽调整、本地字段级叠加优先+AI兜底并结构化注入规则提示；规则支持固定值（常量赋值）解决归类需求，AI 可由自然语言生成规则与固定值；修复 WebKit 下拖拽排序失效（dragstart 写入 dataTransfer）。" 2>&1 | tail -15</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/add_session.py --title "封面内嵌读取与重置同步 + 文件名规则引擎" --commit "f32ef4a" --summary "修复重置后封面不同步并新增导入读取内嵌封面缩略图（image crate）；新增文件名规则引擎：分隔/正则两类规则、优先级可拖拽调整、本地字段级叠加优先+AI兜底并结构化注入规则提示；规则支持固定值（常量赋值）解决归类需求，AI 可由自然语言生成规则与固定值；修复 WebKit 下拖拽排序失效（dragstart 写入 dataTransfer）。" 2>&1 | tail -15
+```
+
+```
+========================================
+[OK] Session 3 added successfully!
+========================================
+
+Files updated:
+  - journal-1.md
+  - index.md
+
+[OK] Auto-committed: chore: record journal
+Updating index.md for session 3...
+  Title: 封面内嵌读取与重置同步 + 文件名规则引擎
+  Commit: &#96;f32ef4a&#96;
+  Active File: journal-1.md
+
+[OK] Updated index.md successfully!
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ Checking the git log to make sure everything's in the right order.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+任务完成。最后确认提交顺序。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && git log --oneline -4 && echo "=== 剩余脏文件 ===" && git status --porcelain</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && git log --oneline -4 && echo "=== 剩余脏文件 ===" && git status --porcelain
+```
+
+```
+72b9105 chore: record journal
+782511e chore(task): archive 06-03-cover-reset-and-rules
+f32ef4a feat: 封面内嵌读取与重置同步 + 文件名规则引擎（本地优先+AI兜底+固定值）
+2c1b1f0 chore: record journal
+=== 剩余脏文件 ===
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+?? .specstory/history/2026-06-03_01-26-22Z-v2-implementation-requirement-documentation.md
+?? .specstory/history/2026-06-03_02-11-56Z-metadata-display-and-matching-rules.md
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+任务已完成收尾。
+
+## 本次最后的修复
+拖拽改优先级失效的根因：拖拽手柄的 `dragstart` 没写入 `event.dataTransfer`。macOS 的 WKWebView（Tauri 的 WebKit）下，HTML5 拖拽必须在 `dragstart` 调 `dataTransfer.setData()` 才会真正发起、`drop` 才会触发。已新增 `onDragStart` 设置 `effectAllowed='move'` + `setData`，并加 `@dragend` 复位。`vue-tsc` 通过。
+
+## finish-work 结果
+提交顺序符合规范（工作提交 → 归档 → 日志）：
+- `f32ef4a` feat：封面内嵌读取与重置同步 + 文件名规则引擎（含本次拖拽修复，17 文件）
+- `782511e` chore(task): archive 06-03-cover-reset-and-rules
+- `72b9105` chore: record journal
+
+任务 `06-03-cover-reset-and-rules` 已归档到 `archive/2026-06/`，会话日志已记录（Session 3，关联 `f32ef4a`）。
+
+剩余脏文件仅为 `.specstory/` 自动生成的对话历史，非本任务代码，按规范未纳入提交。
+
+整个任务交付（封面读取/重置同步 + 规则引擎本地优先/AI 兜底/固定值/AI 生成规则 + 拖拽优先级）已全部完成。

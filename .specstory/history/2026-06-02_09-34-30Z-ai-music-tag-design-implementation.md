@@ -2491,3 +2491,149 @@ f5482a4 docs(prd): 标记 PR5 写回已验证通过 + 记录 ID3v2.3 排障
 <summary>Tool use: **run_terminal_command_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ The working directory is clean with no uncommitted changes. Since PR6 was the final pull request in the plan and it's now complete, the entire `06-01-ai-music-tag-design` task is finished. The user is asking to complete this batch of work, so I should archive the task.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+工作区干净，无遗留改动。PR6 是该任务计划的最后一个 PR，现已完成并真机验证 DMG 打包通过。归档任务。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/task.py archive 06-01-ai-music-tag-design</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/task.py archive 06-01-ai-music-tag-design
+```
+
+```
+[0;32mArchived: 06-01-ai-music-tag-design -&gt; archive/2026-06/[0m
+[OK] Auto-committed: chore(task): archive 06-01-ai-music-tag-design
+.trellis/tasks/archive/2026-06/06-01-ai-music-tag-design
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+Step 4：记录会话日志，引用本轮工作提交。
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/add_session.py --title "PR6 测试 + DMG 打包 + README + DMG 排障" --commit "1c7bf11,60eff3f" --summary "完成 PR6：Rust 15 + 前端 10 个测试、scripts/build-dmg.sh、README；定位并修复 bundle_dmg.sh 的 AppleScript 失败（tauri:build 设 CI=true 触发 --skip-jenkins），真机验证 DMG 打包通过；PRD 记录 PR6 完成并新增 v2「AI 解析提示词用户可自定义」backlog。任务已归档。"</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && python3 ./.trellis/scripts/add_session.py --title "PR6 测试 + DMG 打包 + README + DMG 排障" --commit "1c7bf11,60eff3f" --summary "完成 PR6：Rust 15 + 前端 10 个测试、scripts/build-dmg.sh、README；定位并修复 bundle_dmg.sh 的 AppleScript 失败（tauri:build 设 CI=true 触发 --skip-jenkins），真机验证 DMG 打包通过；PRD 记录 PR6 完成并新增 v2「AI 解析提示词用户可自定义」backlog。任务已归档。"
+```
+
+```
+========================================
+ADD SESSION
+========================================
+
+Session: 1
+Title: PR6 测试 + DMG 打包 + README + DMG 排障
+Commit: 1c7bf11,60eff3f
+
+Current journal file: journal-1.md
+Current lines: 55
+New content lines: 34
+Total after append: 89
+
+[OK] Appended session to journal-1.md
+
+
+========================================
+[OK] Session 1 added successfully!
+========================================
+
+Files updated:
+  - journal-1.md
+  - index.md
+
+[OK] Auto-committed: chore: record journal
+Updating index.md for session 1...
+  Title: PR6 测试 + DMG 打包 + README + DMG 排障
+  Commit: &#96;1c7bf11&#96;, &#96;60eff3f&#96;
+  Active File: journal-1.md
+
+[OK] Updated index.md successfully!
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/wwdd/Documents/code/music-tag-AI && git status --short && echo "--- log ---" && git log --oneline -6</summary>
+
+```bash
+cd /Users/wwdd/Documents/code/music-tag-AI && git status --short && echo "--- log ---" && git log --oneline -6
+```
+
+```
+ M .specstory/history/2026-06-02_09-34-30Z-ai-music-tag-design-implementation.md
+ M .specstory/statistics.json
+--- log ---
+a6531eb chore: record journal
+be2d4a3 chore(task): archive 06-01-ai-music-tag-design
+9032200 chore(specstory): 同步会话历史与统计
+60eff3f docs(prd): 记录 PR6 完成 + DMG 排障 + v2 AI 解析配置 backlog
+1c7bf11 feat: PR6 测试 + DMG 打包脚本 + README
+8b5de74 chore(specstory): 同步会话历史与统计
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-opus-4-8)**_
+
+<think><details><summary>Thought Process</summary>
+ The finish-work flow wrapped up, but the specstory files got updated again as the session recorded our conversation — these are transient artifacts that'll keep changing as we talk, so I'm not committing them now even though we handled specstory earlier.
+
+The commit sequence is complete: work commits came first, then the specstory batch, followed by the archive and journal commits. Everything's in the right order. Ready to report back.</details></think>
+
+_**Agent (claude-opus-4-8)**_
+
+收尾完成。任务已归档并记录会话日志。
+
+## 完成情况
+
+**`06-01-ai-music-tag-design`（TagCast v1，PR1–PR6）任务已结束并归档。**
+
+提交链（本轮）：
+- `1c7bf11` feat: PR6 测试 + DMG 打包脚本 + README
+- `60eff3f` docs(prd): 记录 PR6 完成 + DMG 排障 + v2 backlog
+- `9032200` chore(specstory): 同步会话历史与统计
+- `be2d4a3` chore(task): archive 06-01-ai-music-tag-design（自动）
+- `a6531eb` chore: record journal（自动）
+
+任务目录已移至 `.trellis/tasks/archive/2026-06/`，会话日志写入 `journal-1.md`（引用工作提交 `1c7bf11` / `60eff3f`）。
+
+**验证结论**：你已真机跑通 `npm run build:dmg`，AppleScript 报错消失，DMG 正常产出 —— PR6 的发布准备目标达成，v1 全流程（脚手架 → iCloud → LLM 解析 → 档案库/重命名 → 写回/重置 → 测试/打包/文档）闭环。
+
+> 还剩两个 `.specstory/*` 是本次对话进行中自动刷新的会话记录文件，属持续变动的历史产物，留给下次同步即可，无需现在处理。
+
+TagCast v1 至此交付完成。后续 v2 候选（含你这次提的「AI 解析提示词用户可自定义」）已记入 PRD §13 backlog。
