@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-06-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~254 | Active |
+| `journal-1.md` | ~287 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-06-05 | Bootstarp Trellis Spec 文件 | `921cc84` | `main` |
 | 6 | 2026-06-05 | 更新 README 示例与协议 | `a794126` | `main` |
 | 5 | 2026-06-05 | 批量UX优化：选图定位/AI解析按选中/封面直选/配置数据管理 | `3396866` | `main` |
 | 4 | 2026-06-04 | 设置面板 Apple 风格重构 + 全局浅/深色主题 | `e0aa4cd` | `main` |
