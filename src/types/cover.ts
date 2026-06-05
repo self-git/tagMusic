@@ -2,6 +2,8 @@
 export interface CoverCandidates {
   path: string;
   images: string[];
+  /** 同目录唯一 cover.* 且 <1MB 时的首选封面路径，前端直选、跳过 AI；否则 null */
+  preferred: string | null;
 }
 
 /** 封面 AI 匹配结果，对应 Rust 端 CoverMatchResult。chosen 为选中的图片完整路径或 null */

@@ -6,6 +6,9 @@ use std::path::Path;
 // 可作为封面嵌入的图片扩展名（lofty 0.22 支持，故不含 webp，PRD v2 A1）
 const IMAGE_EXTENSIONS: [&str; 3] = ["jpg", "jpeg", "png"];
 
+// 自动直选封面的大小上限（1MB）：同目录唯一 cover.* 且小于此值时直接选中，跳过 AI 匹配
+const PREFERRED_COVER_MAX_BYTES: u64 = 1024 * 1024;
+
 // 内嵌封面缩略图最长边像素（控制内存与渲染开销）
 const THUMBNAIL_MAX_PX: u32 = 160;
 
@@ -71,11 +74,13 @@ pub fn read_image_data_url(path: String) -> Result<String, String> {
 }
 
 /// 单个音频的候选封面：同目录下的图片完整路径列表
+/// preferred：同目录唯一 cover.* 且 <1MB 时的首选封面路径（前端直选、跳过 AI），否则 None
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CoverCandidates {
     path: String,
     images: Vec<String>,
+    preferred: Option<String>,
 }
 
 fn is_image(p: &Path) -> bool {
@@ -100,6 +105,23 @@ fn scan_dir_images(dir: &Path) -> Vec<String> {
     images
 }
 
+// 首选封面：images 中以 cover 命名（大小写不敏感）的图片只有一张、且文件 <1MB 时返回其路径
+fn preferred_cover(images: &[String]) -> Option<String> {
+    let mut covers = images.iter().filter(|p| {
+        Path::new(p)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.eq_ignore_ascii_case("cover"))
+            .unwrap_or(false)
+    });
+    let only = covers.next()?;
+    if covers.next().is_some() {
+        return None;
+    }
+    let size = std::fs::metadata(only).ok()?.len();
+    (size < PREFERRED_COVER_MAX_BYTES).then(|| only.clone())
+}
+
 /// 为每个音频扫描其所在目录的候选封面图片（同目录、不递归）。
 /// 同目录复用一次扫描结果，避免重复 IO。
 #[tauri::command]
@@ -116,7 +138,12 @@ pub fn scan_cover_candidates(audio_paths: Vec<String>) -> Vec<CoverCandidates> {
                 .entry(dir.clone())
                 .or_insert_with(|| scan_dir_images(Path::new(&dir)))
                 .clone();
-            CoverCandidates { path, images }
+            let preferred = preferred_cover(&images);
+            CoverCandidates {
+                path,
+                images,
+                preferred,
+            }
         })
         .collect()
 }
@@ -154,6 +181,42 @@ mod tests {
         assert!(imgs.iter().any(|p| p.ends_with("b.PNG")));
         assert!(imgs.iter().any(|p| p.ends_with("c.jpeg")));
         assert!(imgs.iter().all(|p| !p.ends_with("skip.webp")));
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    // 唯一 cover.* 且 <1MB → 首选；存在两张 cover.* 或超 1MB → 不首选
+    #[test]
+    fn preferred_cover_rules() {
+        let dir = std::env::temp_dir().join(format!(
+            "tagcast_preferred_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // 唯一小图 cover.jpg → 首选
+        let cover = dir.join("cover.jpg");
+        std::fs::write(&cover, b"small").unwrap();
+        let only = cover.to_string_lossy().to_string();
+        assert_eq!(preferred_cover(&[only.clone()]), Some(only.clone()));
+
+        // 非 cover 命名不参与判定，仍然首选唯一 cover.jpg
+        let other = dir.join("art.png").to_string_lossy().to_string();
+        assert_eq!(preferred_cover(&[only.clone(), other]), Some(only.clone()));
+
+        // 两张 cover.* → 不首选
+        let cover_png = dir.join("cover.png");
+        std::fs::write(&cover_png, b"small").unwrap();
+        assert_eq!(
+            preferred_cover(&[only.clone(), cover_png.to_string_lossy().to_string()]),
+            None
+        );
+
+        // 超过 1MB → 不首选
+        let big = dir.join("cover.jpeg");
+        std::fs::write(&big, vec![0u8; (PREFERRED_COVER_MAX_BYTES + 1) as usize]).unwrap();
+        assert_eq!(preferred_cover(&[big.to_string_lossy().to_string()]), None);
 
         std::fs::remove_dir_all(&dir).ok();
     }

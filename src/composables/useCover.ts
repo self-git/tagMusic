@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { dirname } from "@tauri-apps/api/path";
 import type { AudioFileMeta } from "@/types/audio";
 import type { ProviderConfig } from "@/types/llm";
 import type { CoverCandidates, CoverMatchResult } from "@/types/cover";
@@ -36,22 +37,35 @@ export function useCover() {
       const audioPaths = files.map((f) => f.path);
       const candidates = await invoke<CoverCandidates[]>("scan_cover_candidates", { audioPaths });
       store.setCoverCandidates(candidates);
+      const byPath = new Map(candidates.map((c) => [c.path, c]));
 
-      const items = files.map((f) => ({
-        path: f.path,
-        title: f.title,
-        album: f.album,
-        candidates: candidates.find((c) => c.path === f.path)?.images ?? [],
-      }));
-      const results = await invoke<CoverMatchResult[]>("match_covers", { items, config });
-      store.applyCoverMatches(results);
-
-      // 为选中封面预取缩略图
+      // 同目录唯一 cover.* 且 <1MB：后端标记 preferred，直接选中并跳过 AI 匹配
+      const preferred = files
+        .map((f) => ({ path: f.path, image: byPath.get(f.path)?.preferred ?? null }))
+        .filter((p): p is { path: string; image: string } => p.image !== null);
       await Promise.all(
-        results
-          .filter((r): r is CoverMatchResult & { chosen: string } => r.chosen !== null)
-          .map(async (r) => store.setCoverThumb(r.path, await thumb(r.chosen))),
+        preferred.map(async (p) => store.setCover(p.path, p.image, await thumb(p.image))),
       );
+
+      // 其余文件交 AI 文本匹配
+      const aiFiles = files.filter((f) => !byPath.get(f.path)?.preferred);
+      if (aiFiles.length > 0) {
+        const items = aiFiles.map((f) => ({
+          path: f.path,
+          title: f.title,
+          album: f.album,
+          candidates: byPath.get(f.path)?.images ?? [],
+        }));
+        const results = await invoke<CoverMatchResult[]>("match_covers", { items, config });
+        store.applyCoverMatches(results);
+
+        // 为选中封面预取缩略图
+        await Promise.all(
+          results
+            .filter((r): r is CoverMatchResult & { chosen: string } => r.chosen !== null)
+            .map(async (r) => store.setCoverThumb(r.path, await thumb(r.chosen))),
+        );
+      }
     } catch (e) {
       error.value = String(e);
     } finally {
@@ -59,10 +73,12 @@ export function useCover() {
     }
   }
 
-  // 手动为指定文件选择封面图片
+  // 手动为指定文件选择封面图片；对话框默认定位到该音频文件所在目录
   async function pickCover(path: string): Promise<void> {
+    const defaultPath = await dirname(path).catch(() => undefined);
     const selected = await open({
       multiple: false,
+      defaultPath,
       filters: [{ name: "Image", extensions: IMAGE_EXTENSIONS }],
     });
     if (selected === null) return;

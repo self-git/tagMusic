@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { Bot, Sparkles, PenLine, Filter, X } from "lucide-vue-next";
+import { Bot, Sparkles, PenLine, Filter, Database, X } from "lucide-vue-next";
 import { useSettingsStore } from "@/store/settings";
+import { useConfigIo } from "@/composables/useConfigIo";
 import RuleEditor from "@/components/RuleEditor.vue";
 import type { ProviderConfig } from "@/types/llm";
 
@@ -10,6 +11,8 @@ defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const settings = useSettingsStore();
+// 配置导出/导入（API Key 加密；导入整体覆盖）
+const { busy: ioBusy, notice: ioNotice, error: ioError, exportConfig, importConfig } = useConfigIo();
 // LLM provider 配置 + 重命名模板 + 解析提示词（来源：设置 store，localStorage 持久化）
 const { llmProvider, renameTemplate, parseConfig } = storeToRefs(settings);
 
@@ -27,12 +30,13 @@ function applyPreset(preset: Preset): void {
 }
 
 // 左侧分类导航：id 决定右侧渲染哪块内容（active 为当前选中分类）
-type Tab = "provider" | "parse" | "rename" | "rules";
+type Tab = "provider" | "parse" | "rename" | "rules" | "data";
 const tabs = [
   { id: "provider", label: "AI 服务", desc: "模型供应商与密钥", icon: Bot, tile: "bg-indigo-500" },
   { id: "parse", label: "AI 解析", desc: "文件名解析提示词", icon: Sparkles, tile: "bg-purple-500" },
   { id: "rename", label: "重命名", desc: "文件重命名模板", icon: PenLine, tile: "bg-orange-500" },
   { id: "rules", label: "匹配规则", desc: "文件名本地匹配规则", icon: Filter, tile: "bg-sky-500" },
+  { id: "data", label: "数据管理", desc: "导出 / 导入配置", icon: Database, tile: "bg-emerald-500" },
 ] as const;
 const active = ref<Tab>("provider");
 const activeMeta = computed(() => tabs.find((t) => t.id === active.value));
@@ -217,6 +221,31 @@ const activeMeta = computed(() => tabs.find((t) => t.id === active.value));
           <!-- 匹配规则 -->
           <div v-show="active === 'rules'">
             <RuleEditor />
+          </div>
+
+          <!-- 数据管理：导出 / 导入配置（API Key 加密，导入整体覆盖） -->
+          <div v-show="active === 'data'" class="max-w-2xl">
+            <p class="mb-4 text-xs text-faint">
+              导出当前全部设置为 JSON 文件（API Key 会加密存储），可在其他设备通过导入整体恢复。不含节目档案库。
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button
+                class="rounded-lg border border-edge px-4 py-2 text-sm text-strong transition hover:bg-elevated disabled:opacity-50"
+                :disabled="ioBusy"
+                @click="exportConfig"
+              >
+                导出数据
+              </button>
+              <button
+                class="rounded-lg border border-edge px-4 py-2 text-sm text-strong transition hover:bg-elevated disabled:opacity-50"
+                :disabled="ioBusy"
+                @click="importConfig"
+              >
+                导入数据
+              </button>
+            </div>
+            <p v-if="ioNotice" class="mt-3 text-xs text-success-fg">{{ ioNotice }}</p>
+            <p v-if="ioError" class="mt-3 text-xs text-danger-fg">{{ ioError }}</p>
           </div>
         </div>
       </section>

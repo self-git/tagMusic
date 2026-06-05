@@ -1,4 +1,5 @@
 mod audio;
+mod config;
 mod cover;
 mod db;
 mod icloud;
@@ -39,7 +40,9 @@ pub fn run() {
             profiles::delete_show_profile,
             write::write_metadata,
             write::reset_files,
-            write::list_snapshot_paths
+            write::list_snapshot_paths,
+            config::write_text_file,
+            config::read_text_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

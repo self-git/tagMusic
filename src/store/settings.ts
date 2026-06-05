@@ -3,6 +3,16 @@ import { ref, watch } from "vue";
 import type { ProviderConfig, ParseConfig } from "@/types/llm";
 import type { FilenameRule } from "@/types/rule";
 
+/** 可导出/导入的设置快照（6 项设置，不含节目档案库；llmProvider.apiKey 由上层加密处理） */
+export interface ConfigSnapshot {
+  icloudAutoDownload: boolean;
+  llmProvider: ProviderConfig;
+  renameEnabled: boolean;
+  renameTemplate: string;
+  parseConfig: ParseConfig;
+  rules: FilenameRule[];
+}
+
 const ICLOUD_KEY = "tagcast.settings.icloudAutoDownload";
 const LLM_KEY = "tagcast.settings.llmProvider";
 const RENAME_ENABLED_KEY = "tagcast.settings.renameEnabled";
@@ -141,6 +151,28 @@ export const useSettingsStore = defineStore("settings", () => {
     parseConfig.value = { ...parseConfig.value, [field]: DEFAULT_PARSE_CONFIG[field] };
   }
 
+  // 导出当前全部设置快照（供配置导出；不含节目档案库）
+  function exportSnapshot(): ConfigSnapshot {
+    return {
+      icloudAutoDownload: icloudAutoDownload.value,
+      llmProvider: { ...llmProvider.value },
+      renameEnabled: renameEnabled.value,
+      renameTemplate: renameTemplate.value,
+      parseConfig: { ...parseConfig.value },
+      rules: [...rules.value],
+    };
+  }
+
+  // 导入设置：整体覆盖——快照中存在的项直接替换当前值（缺失项保持不变）
+  function importSnapshot(s: Partial<ConfigSnapshot>): void {
+    if (typeof s.icloudAutoDownload === "boolean") icloudAutoDownload.value = s.icloudAutoDownload;
+    if (s.llmProvider) llmProvider.value = { ...DEFAULT_PROVIDER, ...s.llmProvider };
+    if (typeof s.renameEnabled === "boolean") renameEnabled.value = s.renameEnabled;
+    if (typeof s.renameTemplate === "string") renameTemplate.value = s.renameTemplate;
+    if (s.parseConfig) parseConfig.value = { ...DEFAULT_PARSE_CONFIG, ...s.parseConfig };
+    if (Array.isArray(s.rules)) rules.value = s.rules;
+  }
+
   return {
     icloudAutoDownload,
     llmProvider,
@@ -149,5 +181,7 @@ export const useSettingsStore = defineStore("settings", () => {
     parseConfig,
     rules,
     resetParseField,
+    exportSnapshot,
+    importSnapshot,
   };
 });

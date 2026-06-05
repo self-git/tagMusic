@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { getCoreRowModel, useVueTable, type ColumnDef } from "@tanstack/vue-table";
 import { useAudioStore } from "@/store/audio";
@@ -30,9 +30,32 @@ const { working, error: writeError, notice, write, reset } = useWriteback();
 
 // 解析后未匹配到档案的节目名，引导用户建档
 const unmatchedAlbums = ref<string[]>([]);
+// AI 解析未选中文件时的状态栏提示
+const selectNotice = ref<string | null>(null);
 
-// 选中行集合（按 path），用于「批量应用」
+// 选中行集合（按 path），用于「批量应用」「AI 解析」等批量操作
 const selected = ref<Set<string>>(new Set());
+// 已处理过的 path：拖入/新增的文件默认选中，仅对「新出现」的文件自动勾选，不影响用户手动取消
+const seenPaths = ref<Set<string>>(new Set());
+watch(
+  files,
+  (list) => {
+    const current = new Set(list.map((f) => f.path));
+    const nextSelected = new Set(selected.value);
+    const nextSeen = new Set(seenPaths.value);
+    for (const f of list) {
+      if (!nextSeen.has(f.path)) {
+        nextSelected.add(f.path);
+        nextSeen.add(f.path);
+      }
+    }
+    // 收敛 seen：移除已不在工作区的文件，便于重新导入时再次默认选中
+    for (const p of [...nextSeen]) if (!current.has(p)) nextSeen.delete(p);
+    selected.value = nextSelected;
+    seenPaths.value = nextSeen;
+  },
+  { immediate: true },
+);
 function toggle(path: string): void {
   const next = new Set(selected.value);
   if (next.has(path)) next.delete(path);
@@ -99,11 +122,18 @@ const table = useVueTable({
 });
 
 async function parseAll(): Promise<void> {
+  // 问题 2：仅解析选中文件；未选中时状态栏提示，不解析全部
+  const targets = files.value.filter((f) => selected.value.has(f.path));
+  if (targets.length === 0) {
+    selectNotice.value = "未选中文件，请先勾选要解析的文件";
+    return;
+  }
+  selectNotice.value = null;
   try {
     // 问题 2：本地规则按优先级先跑（字段级叠加），仅把仍有空缺字段的文件交给 AI 兜底
     const rules = settings.rules;
-    const localByPath = new Map(files.value.map((f) => [f.path, applyRules(f.fileName, rules)]));
-    const gapFiles = files.value.filter((f) => {
+    const localByPath = new Map(targets.map((f) => [f.path, applyRules(f.fileName, rules)]));
+    const gapFiles = targets.filter((f) => {
       const m = localByPath.get(f.path);
       return !m || m.title === undefined || m.album === undefined || m.artist === undefined || m.track === undefined;
     });
@@ -113,7 +143,7 @@ async function parseAll(): Promise<void> {
         : [];
     const aiByPath = new Map(ai.map((r) => [r.path, r]));
     // 合并：本地命中字段优先，空缺字段用 AI 结果补
-    const merged: ParseResult[] = files.value.map((f) => {
+    const merged: ParseResult[] = targets.map((f) => {
       const m = localByPath.get(f.path) ?? {};
       const a = aiByPath.get(f.path);
       return {
@@ -127,9 +157,9 @@ async function parseAll(): Promise<void> {
     });
     store.applyParseResults(merged);
     // 用节目档案库自动回填 artist/album，收集未匹配节目供引导建档
-    unmatchedAlbums.value = profiles.autoFill(files.value);
-    // 解析完成后基于 title/album 扫描并 AI 匹配同目录封面（best-effort）
-    await scanAndMatch(files.value, settings.llmProvider);
+    unmatchedAlbums.value = profiles.autoFill(targets);
+    // 解析完成后基于 title/album 扫描并匹配同目录封面（best-effort）
+    await scanAndMatch(targets, settings.llmProvider);
   } catch {
     // 错误已记录在 error，UI 顶部展示
   }
@@ -265,6 +295,12 @@ function confidenceLabel(path: string): string {
       class="border-b border-success-edge bg-success-bg px-4 py-1.5 text-sm text-success-fg"
     >
       {{ notice }}
+    </p>
+    <p
+      v-if="selectNotice"
+      class="border-b border-warning-edge bg-warning-bg px-4 py-1.5 text-sm text-warning-fg"
+    >
+      {{ selectNotice }}
     </p>
     <div
       v-if="unmatchedAlbums.length > 0"
