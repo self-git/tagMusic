@@ -186,3 +186,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: 批量UX优化：选图定位/AI解析按选中/封面直选/配置数据管理
+
+**Date**: 2026-06-05
+**Task**: 批量UX优化：选图定位/AI解析按选中/封面直选/配置数据管理
+**Branch**: `main`
+
+### Summary
+
+选图对话框定位到文件目录；AI解析仅处理选中文件且新增文件默认选中；同目录唯一cover.*<1MB直选封面跳过AI；设置新增数据管理页导出/导入配置(API Key AES-GCM加密)。type-check/cargo test/vitest 全绿。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3396866` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
